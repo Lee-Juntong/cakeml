@@ -267,7 +267,7 @@ Theorem explode_implode[simp]:
    ∀x. explode (implode x) = x
 -/
 theorem explode_implode (x : String) :
-    explode (implode x) = x.data := sorry
+    explode (implode x) = x.data := explode_thm x
 /- HOL4:
 Theorem implode_explode[simp]:
    ∀x. implode (explode x) = x
@@ -279,7 +279,19 @@ Theorem explode_11[simp]:
    ∀s1 s2. (explode s1 = explode s2) ⇔ (s1 = s2)
 -/
 theorem explode_11 (s1 s2 : mlstring) :
-    explode s1 = explode s2 ↔ s1 = s2 := sorry
+    explode s1 = explode s2 ↔ s1 = s2 := by
+  constructor
+  · intro h
+    cases s1 with
+    | strlit ls1 =>
+      cases s2 with
+      | strlit ls2 =>
+        congr 1
+        have h1 := explode_thm ls1
+        have h2 := explode_thm ls2
+        rw [h1, h2] at h
+        exact String.ext h
+  · rintro rfl; rfl
 /- HOL4:
 Theorem TOKENS_eq_tokens_aux:
    !P ls ss n len. (n + len = LENGTH (explode ls)) ==>

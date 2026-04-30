@@ -66,58 +66,105 @@ def nsSub_compute {m n v1 v2 : Type} [BEq m] [BEq n]
 
 /- HOL4: Theorem mk_id_thm: !id. mk_id (id_to_mods id) (id_to_n id) = id -/
 theorem mk_id_thm {m n : Type} :
-    ∀ (id : cml_id m n), mk_id (id_to_mods id) (id_to_n id) = id := sorry
+    ∀ (id : cml_id m n), mk_id (id_to_mods id) (id_to_n id) = id := by
+  intro id
+  induction id with
+  | Short _ => rfl
+  | Long mn id ih => simp [mk_id, id_to_mods, id_to_n, ih]
 /- HOL4: Theorem mk_id_surj: !id. ?p n. id = mk_id p n -/
 theorem mk_id_surj {m n : Type} :
-    ∀ (id : cml_id m n), ∃ (p : List m) (n_ : n), id = mk_id p n_ := sorry
+    ∀ (id : cml_id m n), ∃ (p : List m) (n_ : n), id = mk_id p n_ := by
+  intro id
+  exact ⟨id_to_mods id, id_to_n id, (mk_id_thm id).symm⟩
 /- HOL4: Theorem nsSub_mono[mono] -/
 theorem nsSub_mono {m n v1 v2 : Type} [BEq m] [BEq n]
     {R1 R2 : cml_id m n → v1 → v2 → Prop}
     {e1 : «namespace» m n v1} {e2 : «namespace» m n v2} :
     (∀ (x : cml_id m n) (y : v1) (z : v2), R1 x y z → R2 x y z) →
-    (nsSub R1 e1 e2 → nsSub R2 e1 e2) := sorry
+    (nsSub R1 e1 e2 → nsSub R2 e1 e2) := by
+  intro h ⟨h1, h2⟩
+  refine ⟨?_, h2⟩
+  intro id v1_ hl
+  obtain ⟨v2_, hl2, hr⟩ := h1 id v1_ hl
+  exact ⟨v2_, hl2, h _ _ _ hr⟩
 /- HOL4: Theorem nsAll2_mono[mono] -/
 theorem nsAll2_mono {m n v1 v2 : Type} [BEq m] [BEq n]
     {R1 R2 : cml_id m n → v1 → v2 → Prop}
     {e1 : «namespace» m n v1} {e2 : «namespace» m n v2} :
     (∀ (x : cml_id m n) (y : v1) (z : v2), R1 x y z → R2 x y z) →
-    nsAll2 R1 e1 e2 → nsAll2 R2 e1 e2 := sorry
+    nsAll2 R1 e1 e2 → nsAll2 R2 e1 e2 := by
+  intro h ⟨hl, hr⟩
+  refine ⟨nsSub_mono h hl, nsSub_mono ?_ hr⟩
+  intro x y z hyx; exact h x z y hyx
 /- HOL4: Theorem nsLookup_nsEmpty[simp] -/
 theorem nsLookup_nsEmpty {m n v : Type} [BEq m] [BEq n] :
-    ∀ (id : cml_id m n), nsLookup (nsEmpty : «namespace» m n v) id = none := sorry
+    ∀ (id : cml_id m n), nsLookup (nsEmpty : «namespace» m n v) id = none := by
+  intro id
+  cases id with
+  | Short _ => rfl
+  | Long _ _ => rfl
 /- HOL4: Theorem nsLookupMod_nsEmpty[simp] -/
 theorem nsLookupMod_nsEmpty {m n v : Type} [BEq m] :
-    ∀ (x : m) (y : List m), nsLookupMod (nsEmpty : «namespace» m n v) (x :: y) = none := sorry
+    ∀ (x : m) (y : List m), nsLookupMod (nsEmpty : «namespace» m n v) (x :: y) = none := by
+  intros; rfl
 /- HOL4: Theorem nsAppend_nsEmpty[simp] -/
 theorem nsAppend_nsEmpty {m n v : Type} :
     ∀ (env : «namespace» m n v),
-      nsAppend env nsEmpty = env ∧ nsAppend nsEmpty env = env := sorry
+      nsAppend env nsEmpty = env ∧ nsAppend nsEmpty env = env := by
+  intro env
+  cases env with
+  | Bind v m => simp [nsAppend, nsEmpty]
 /- HOL4: Theorem alist_to_ns_nil[simp] -/
 theorem alist_to_ns_nil {m n v : Type} :
-    (alist_to_ns [] : «namespace» m n v) = nsEmpty := sorry
+    (alist_to_ns [] : «namespace» m n v) = nsEmpty := rfl
 /- HOL4: Theorem nsSub_nsEmpty[simp] -/
 theorem nsSub_nsEmpty {m n v1 v2 : Type} [BEq m] [BEq n] :
     ∀ (r : cml_id m n → v1 → v2 → Prop) (env : «namespace» m n v2),
-      nsSub r (nsEmpty : «namespace» m n v1) env := sorry
+      nsSub r (nsEmpty : «namespace» m n v1) env := by
+  intro r env
+  refine ⟨?_, ?_⟩
+  · intro id v1_ h
+    rw [nsLookup_nsEmpty] at h
+    cases h
+  · intro path hp
+    cases path with
+    | nil =>
+      -- nsLookupMod env [] = some env, never none
+      simp [nsLookupMod] at hp
+    | cons _ _ => rfl
 /- HOL4: Theorem nsAll_nsEmpty[simp] -/
 theorem nsAll_nsEmpty {m n v : Type} [BEq m] [BEq n] :
-    ∀ (f : cml_id m n → v → Prop), nsAll f nsEmpty := sorry
+    ∀ (f : cml_id m n → v → Prop), nsAll f nsEmpty := by
+  intro f id v_ h
+  rw [nsLookup_nsEmpty] at h
+  cases h
 /- HOL4: Theorem nsAll2_nsEmpty[simp] -/
 theorem nsAll2_nsEmpty {m n v1 v2 : Type} [BEq m] [BEq n] :
     ∀ (f : cml_id m n → v1 → v2 → Prop),
-      nsAll2 f (nsEmpty : «namespace» m n v1) (nsEmpty : «namespace» m n v2) := sorry
+      nsAll2 f (nsEmpty : «namespace» m n v1) (nsEmpty : «namespace» m n v2) := by
+  intro f
+  exact ⟨nsSub_nsEmpty _ _, nsSub_nsEmpty _ _⟩
 /- HOL4: Theorem alist_to_ns_cons[simp] -/
 theorem alist_to_ns_cons {m n v : Type} :
     ∀ (k : n) (val_ : v) (l : List (n × v)),
-      (alist_to_ns ((k, val_) :: l) : «namespace» m n v) = nsBind k val_ (alist_to_ns l) := sorry
+      (alist_to_ns ((k, val_) :: l) : «namespace» m n v) = nsBind k val_ (alist_to_ns l) := by
+  intros; rfl
 /- HOL4: Theorem nsAppend_nsBind[simp] -/
 theorem nsAppend_nsBind {m n v : Type} :
     ∀ (k : n) (val_ : v) (e1 e2 : «namespace» m n v),
-      nsAppend (nsBind k val_ e1) e2 = nsBind k val_ (nsAppend e1 e2) := sorry
+      nsAppend (nsBind k val_ e1) e2 = nsBind k val_ (nsAppend e1 e2) := by
+  intro k val_ e1 e2
+  cases e1 with
+  | Bind v1 m1 =>
+    cases e2 with
+    | Bind v2 m2 => rfl
 /- HOL4: Theorem nsAppend_assoc[simp] -/
 theorem nsAppend_assoc {m n v : Type} :
     ∀ (e1 e2 e3 : «namespace» m n v),
-      nsAppend e1 (nsAppend e2 e3) = nsAppend (nsAppend e1 e2) e3 := sorry
+      nsAppend e1 (nsAppend e2 e3) = nsAppend (nsAppend e1 e2) e3 := by
+  intro e1 e2 e3
+  cases e1; cases e2; cases e3
+  simp [nsAppend, List.append_assoc]
 /- HOL4: Theorem nsLookup_nsBind[simp] -/
 theorem nsLookup_nsBind {m n v : Type} [BEq m] [BEq n] :
     (∀ (n_ : n) (val_ : v) (e : «namespace» m n v),
@@ -127,7 +174,10 @@ theorem nsLookup_nsBind {m n v : Type} [BEq m] [BEq n] :
 /- HOL4: Theorem nsAppend_nsSing[simp] -/
 theorem nsAppend_nsSing {m n v : Type} :
     ∀ (n_ : n) (x : v) (e : «namespace» m n v),
-      nsAppend (nsSing n_ x) e = nsBind n_ x e := sorry
+      nsAppend (nsSing n_ x) e = nsBind n_ x e := by
+  intro n_ x e
+  cases e with
+  | Bind v_ m_ => rfl
 /- HOL4: Theorem nsLookup_nsSing[simp] -/
 theorem nsLookup_nsSing {m n v : Type} [BEq m] [BEq n] :
     ∀ (n_ : n) (val_ : v) (id_ : cml_id m n),
@@ -145,25 +195,49 @@ theorem nsAll2_nsSing {m n v1 v2 : Type} [BEq m] [BEq n] :
 /- HOL4: Theorem nsBind_11[simp] -/
 theorem nsBind_11 {m n v : Type} :
     ∀ (x : n) (y : v) (ns : «namespace» m n v) (x' : n) (y' : v) (ns' : «namespace» m n v),
-      nsBind x y ns = nsBind x' y' ns' ↔ x = x' ∧ y = y' ∧ ns = ns' := sorry
+      nsBind x y ns = nsBind x' y' ns' ↔ x = x' ∧ y = y' ∧ ns = ns' := by
+  intro x y ns x' y' ns'
+  cases ns with
+  | Bind v1 m1 =>
+    cases ns' with
+    | Bind v2 m2 =>
+      simp [nsBind, and_assoc]
 /- HOL4: Theorem alist_to_ns_11[simp] -/
 theorem alist_to_ns_11 {m n v : Type} :
     ∀ (l1 l2 : List (n × v)),
-      (alist_to_ns l1 : «namespace» m n v) = alist_to_ns l2 ↔ l1 = l2 := sorry
+      (alist_to_ns l1 : «namespace» m n v) = alist_to_ns l2 ↔ l1 = l2 := by
+  intro l1 l2
+  simp [alist_to_ns]
 /- HOL4: Theorem nsLookup_nsLift -/
 theorem nsLookup_nsLift {m n v : Type} [BEq m] [BEq n] :
     ∀ (mn : m) (e : «namespace» m n v) (id_ : cml_id m n),
       nsLookup (nsLift mn e) id_ =
         match id_ with
         | cml_id.Long mn' id' => if mn == mn' then nsLookup e id' else none
-        | cml_id.Short _ => none := sorry
+        | cml_id.Short _ => none := by
+  intro mn e id_
+  cases id_ with
+  | Short x => rfl
+  | Long mn' id' =>
+    simp [nsLift, nsLookup, ALOOKUP]
+    by_cases h : mn == mn'
+    · simp [h]
+    · simp [h]
 /- HOL4: Theorem nsLookupMod_nsLift -/
 theorem nsLookupMod_nsLift {m n v : Type} [BEq m] :
     ∀ (mn : m) (e : «namespace» m n v) (path : List m),
       nsLookupMod (nsLift mn e) path =
         match path with
         | [] => some (nsLift mn e)
-        | mn' :: path' => if mn == mn' then nsLookupMod e path' else none := sorry
+        | mn' :: path' => if mn == mn' then nsLookupMod e path' else none := by
+  intro mn e path
+  cases path with
+  | nil => rfl
+  | cons mn' path' =>
+    simp [nsLift, nsLookupMod, ALOOKUP]
+    by_cases h : mn == mn'
+    · simp [h]
+    · simp [h]
 /- HOL4: Theorem nsLookup_nsAppend_some -/
 theorem nsLookup_nsAppend_some {m n v : Type} [BEq m] [BEq n] :
     ∀ (e1 : «namespace» m n v) (id_ : cml_id m n) (e2 : «namespace» m n v) (val_ : v),
@@ -175,7 +249,20 @@ theorem nsLookup_nsAppend_some {m n v : Type} [BEq m] [BEq n] :
 /- HOL4: Theorem nsAppend_to_nsBindList -/
 theorem nsAppend_to_nsBindList {m n v : Type} :
     ∀ (l : List (n × v)) (e : «namespace» m n v),
-      nsAppend (alist_to_ns l) e = nsBindList l e := sorry
+      nsAppend (alist_to_ns l) e = nsBindList l e := by
+  intro l e
+  induction l with
+  | nil =>
+    cases e with
+    | Bind _ _ => rfl
+  | cons p ps ih =>
+    obtain ⟨k, val_⟩ := p
+    cases e with
+    | Bind v_ m_ =>
+      show nsAppend (alist_to_ns ((k, val_) :: ps)) («namespace».Bind v_ m_) =
+        nsBindList ((k, val_) :: ps) («namespace».Bind v_ m_)
+      rw [alist_to_ns_cons, nsAppend_nsBind, ih]
+      rfl
 /- HOL4: Theorem nsLookupMod_nsAppend_none -/
 theorem nsLookupMod_nsAppend_none {m n v : Type} [BEq m] :
     ∀ (e1 e2 : «namespace» m n v) (path : List m),
@@ -186,11 +273,14 @@ theorem nsLookupMod_nsAppend_none {m n v : Type} [BEq m] :
             p1 ≠ [] ∧ path = p1 ++ p2 ∧ nsLookupMod e1 p1 = some e3)) := sorry
 /- HOL4: Theorem eALL_T[simp] -/
 theorem eALL_T {m n v : Type} [BEq m] [BEq n] :
-    ∀ (e : «namespace» m n v), nsAll (fun (_n : cml_id m n) (_x : v) => True) e := sorry
+    ∀ (e : «namespace» m n v), nsAll (fun (_n : cml_id m n) (_x : v) => True) e := by
+  intro e _ _ _; trivial
 /- HOL4: Theorem nsLookup_nsAll -/
 theorem nsLookup_nsAll {m n v : Type} [BEq m] [BEq n] :
     ∀ (env : «namespace» m n v) (x : cml_id m n) (P : cml_id m n → v → Prop) (val_ : v),
-      nsAll P env ∧ nsLookup env x = some val_ → P x val_ := sorry
+      nsAll P env ∧ nsLookup env x = some val_ → P x val_ := by
+  intro env x P val_ ⟨h, hl⟩
+  exact h x val_ hl
 /- HOL4: Theorem nsAll_nsAppend -/
 theorem nsAll_nsAppend {m n v : Type} [BEq m] [BEq n] :
     ∀ (f : cml_id m n → v → Prop) (e1 e2 : «namespace» m n v),
@@ -212,12 +302,35 @@ theorem nsAll_nsAppend_left {m n v : Type} [BEq m] [BEq n] :
 theorem nsSub_conj {m n v1 v2 : Type} [BEq m] [BEq n] :
     ∀ (P Q : cml_id m n → v1 → v2 → Prop) (e1 : «namespace» m n v1) (e2 : «namespace» m n v2),
       nsSub (fun (id_ : cml_id m n) (x : v1) (y : v2) => P id_ x y ∧ Q id_ x y) e1 e2 ↔
-        nsSub P e1 e2 ∧ nsSub Q e1 e2 := sorry
+        nsSub P e1 e2 ∧ nsSub Q e1 e2 := by
+  intro P Q e1 e2
+  constructor
+  · rintro ⟨h1, h2⟩
+    refine ⟨⟨?_, h2⟩, ⟨?_, h2⟩⟩
+    · intro id v1_ hl
+      obtain ⟨v2_, hl2, hp, _⟩ := h1 id v1_ hl
+      exact ⟨v2_, hl2, hp⟩
+    · intro id v1_ hl
+      obtain ⟨v2_, hl2, _, hq⟩ := h1 id v1_ hl
+      exact ⟨v2_, hl2, hq⟩
+  · rintro ⟨⟨h1p, h2⟩, ⟨h1q, _⟩⟩
+    refine ⟨?_, h2⟩
+    intro id v1_ hl
+    obtain ⟨v2_, hl2, hp⟩ := h1p id v1_ hl
+    obtain ⟨v2', hl2', hq⟩ := h1q id v1_ hl
+    refine ⟨v2_, hl2, hp, ?_⟩
+    have heq : v2' = v2_ := by rw [hl2] at hl2'; injection hl2' with h; exact h.symm
+    rw [← heq]; exact hq
 /- HOL4: Theorem nsSub_refl -/
 theorem nsSub_refl {m n v : Type} [BEq m] [BEq n] :
     ∀ (P : cml_id m n → v → Prop) (R : cml_id m n → v → v → Prop),
       (∀ (n_ : cml_id m n) (x : v), P n_ x → R n_ x x) →
-        ∀ (e : «namespace» m n v), nsAll P e → nsSub R e e := sorry
+        ∀ (e : «namespace» m n v), nsAll P e → nsSub R e e := by
+  intro P R hPR e hAll
+  refine ⟨?_, ?_⟩
+  · intro id v_ hl
+    exact ⟨v_, hl, hPR _ _ (hAll _ _ hl)⟩
+  · intro _ h; exact h
 /- HOL4: Theorem nsSub_nsBind -/
 theorem nsSub_nsBind {m n v1 v2 : Type} [BEq m] [BEq n] :
     ∀ (R : cml_id m n → v1 → v2 → Prop) (x : n) (v1_ : v1) (v2_ : v2)
@@ -267,7 +380,13 @@ theorem nsAll2_conj {m n v1 v2 : Type} [BEq m] [BEq n] :
     ∀ (P Q : cml_id m n → v1 → v2 → Prop)
       (e1 : «namespace» m n v1) (e2 : «namespace» m n v2),
       nsAll2 (fun (id_ : cml_id m n) (x : v1) (y : v2) => P id_ x y ∧ Q id_ x y) e1 e2 ↔
-        nsAll2 P e1 e2 ∧ nsAll2 Q e1 e2 := sorry
+        nsAll2 P e1 e2 ∧ nsAll2 Q e1 e2 := by
+  intro P Q e1 e2
+  unfold nsAll2
+  rw [nsSub_conj, nsSub_conj]
+  constructor
+  · rintro ⟨⟨hp, hq⟩, hp', hq'⟩; exact ⟨⟨hp, hp'⟩, hq, hq'⟩
+  · rintro ⟨⟨hp, hp'⟩, hq, hq'⟩; exact ⟨⟨hp, hq⟩, hp', hq'⟩
 /- HOL4: Theorem nsAll2_nsLookup2 -/
 theorem nsAll2_nsLookup2 {m n v1 v2 : Type} [BEq m] [BEq n] :
     ∀ (R : cml_id m n → v1 → v2 → Prop)

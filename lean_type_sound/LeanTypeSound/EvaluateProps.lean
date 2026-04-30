@@ -163,7 +163,15 @@ theorem is_clock_io_mono_err {ffi α β : Type}
    (case x of (a, b) => P a b) = (!a b. x = (a, b) ==> P a b)
 -/
 theorem pair_CASE_eq_forall {α β : Type} {P : α → β → Prop} {x : α × β} :
-    (match x with | (a, b) => P a b) = (∀ a b, x = (a, b) → P a b) := sorry
+    (match x with | (a, b) => P a b) = (∀ a b, x = (a, b) → P a b) := by
+  obtain ⟨a, b⟩ := x
+  apply propext
+  constructor
+  · intro h a' b' heq
+    cases heq
+    exact h
+  · intro h
+    exact h a b rfl
 /- HOL4: Theorem is_clock_io_mono_bind
    is_clock_io_mono f s /\ (!s' r. f s = (s', r)
         ==> is_clock_io_mono (g r) s')
@@ -199,7 +207,9 @@ theorem is_clock_io_mono_check {ffi α β : Type}
    dec_clock (adj_clock 1 0 s) = s
 -/
 theorem dec_inc_clock {ffi : Type} (s : cml_state ffi) :
-    dec_clock (adj_clock 1 0 s) = s := sorry
+    dec_clock (adj_clock 1 0 s) = s := by
+  cases s
+  simp [dec_clock, adj_clock]
 /- HOL4: Theorem do_app_refs_length
    do_app refs_ffi op vs = SOME res ==>
    LENGTH (FST refs_ffi) <= LENGTH (FST (FST res))
@@ -262,7 +272,19 @@ theorem is_clock_io_mono_extra {ffi α β : Type}
 -/
 theorem list_result_eq_Rval {α β : Type}
     {r : result α β} {r' : List α} :
-    list_result r = .Rval r' ↔ ∃ v, r' = [v] ∧ r = .Rval v := sorry
+    list_result r = .Rval r' ↔ ∃ v, r' = [v] ∧ r = .Rval v := by
+  cases r with
+  | Rval v =>
+    constructor
+    · intro h
+      simp [list_result] at h
+      exact ⟨v, h.symm, rfl⟩
+    · rintro ⟨w, hw, hv⟩
+      simp [list_result]
+      injection hv with h
+      rw [h, hw]
+  | Rerr e =>
+    simp [list_result]
 /- HOL4: Theorem evaluate_length
    (∀(s:'ffi state) e p s' r. evaluate s e p = (s',Rval r) ⇒ LENGTH r = LENGTH p) ∧
    (∀(s:'ffi state) e v p er s' r. evaluate_match s e v p er = (s',Rval r) ⇒ LENGTH r = 1) ∧
