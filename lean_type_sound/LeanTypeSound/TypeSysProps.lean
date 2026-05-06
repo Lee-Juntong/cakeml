@@ -209,9 +209,29 @@ Theorem deBruijn_inc_deBruijn_inc:
  !sk i2 t i1.
   deBruijn_inc sk i1 (deBruijn_inc sk i2 t) = deBruijn_inc sk (i1 + i2) t
 -/
+private theorem map_eq_of_eq_on_mem {α β : Type} (f g : α → β) (l : List α)
+    (h : ∀ x ∈ l, f x = g x) : l.map f = l.map g := by
+  induction l with
+  | nil => rfl
+  | cons x xs ih =>
+    simp [h x List.mem_cons_self, ih (fun y hy => h y (List.mem_cons_of_mem x hy))]
+
 theorem deBruijn_inc_deBruijn_inc :
     ∀ (sk i2 : Nat) (t : sem_t) (i1 : Nat),
-      deBruijn_inc sk i1 (deBruijn_inc sk i2 t) = deBruijn_inc sk (i1 + i2) t := sorry
+      deBruijn_inc sk i1 (deBruijn_inc sk i2 t) = deBruijn_inc sk (i1 + i2) t := by
+  intro sk i2 t i1
+  induction t using deBruijn_inc.induct sk with
+  | case1 _ => simp [deBruijn_inc]
+  | case2 _ h => simp [deBruijn_inc, h]
+  | case3 a h =>
+    simp only [deBruijn_inc, h, ↓reduceIte]
+    have h2 : ¬ a + i2 < sk := by omega
+    simp [h2]; omega
+  | case4 ts tn ih =>
+    simp only [deBruijn_inc]
+    congr 1
+    rw [List.map_map]
+    exact map_eq_of_eq_on_mem _ _ _ (fun x hx => ih x hx)
 /- HOL4: [local]
 Theorem deBuijn_inc_lem1:
   !sk i2 t i1.
@@ -219,7 +239,23 @@ Theorem deBuijn_inc_lem1:
 -/
 theorem deBuijn_inc_lem1 :
     ∀ (sk i2 : Nat) (t : sem_t) (i1 : Nat),
-      deBruijn_inc sk i1 (deBruijn_inc 0 (sk + i2) t) = deBruijn_inc 0 (i1 + (sk + i2)) t := sorry
+      deBruijn_inc sk i1 (deBruijn_inc 0 (sk + i2) t) = deBruijn_inc 0 (i1 + (sk + i2)) t := by
+  intro sk i2 t i1
+  induction t using deBruijn_inc.induct 0 with
+  | case1 _ => simp [deBruijn_inc]
+  | case2 a h =>
+    -- a < 0 is impossible
+    omega
+  | case3 a _ =>
+    simp only [deBruijn_inc, Nat.not_lt_zero, ↓reduceIte]
+    have h2 : ¬ a + (sk + i2) < sk := by omega
+    simp [h2]
+    omega
+  | case4 ts tn ih =>
+    simp only [deBruijn_inc]
+    congr 1
+    rw [List.map_map]
+    exact map_eq_of_eq_on_mem _ _ _ (fun x hx => ih x hx)
 /- HOL4: [local]
 Theorem type_subst_deBruijn_inc_single:
   !s t ts tvs inc sk.

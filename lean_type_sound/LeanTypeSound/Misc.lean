@@ -240,10 +240,55 @@ theorem ALOOKUP_find_index_SOME {α β : Type} [BEq α] [LawfulBEq α] [Inhabite
 Theorem IS_PREFIX_THM:
   !l2 l1. IS_PREFIX l1 l2 <=> (LENGTH l2 <= LENGTH l1) /\ !n. n < LENGTH l2 ==> (EL n l2 = EL n l1)
 -/
-theorem IS_PREFIX_THM {α : Type} [BEq α] [Inhabited α]
+theorem IS_PREFIX_THM {α : Type} [BEq α] [LawfulBEq α] [Inhabited α]
     (l2 l1 : List α) :
     IS_PREFIX l1 l2 = true ↔
-    l2.length ≤ l1.length ∧ ∀ n, n < l2.length → EL n l2 = EL n l1 := sorry
+    l2.length ≤ l1.length ∧ ∀ n, n < l2.length → EL n l2 = EL n l1 := by
+  unfold IS_PREFIX EL
+  induction l2 generalizing l1 with
+  | nil =>
+    simp [List.isPrefixOf]
+  | cons x xs ih =>
+    cases l1 with
+    | nil =>
+      simp [List.isPrefixOf]
+    | cons y ys =>
+      simp only [List.isPrefixOf, Bool.and_eq_true, beq_iff_eq, List.length_cons]
+      constructor
+      · rintro ⟨hxy, hpref⟩
+        subst hxy
+        rw [ih ys] at hpref
+        obtain ⟨hle, helem⟩ := hpref
+        refine ⟨by omega, ?_⟩
+        intro n hn
+        cases n with
+        | zero =>
+          show (x :: xs)[0]! = (x :: ys)[0]!
+          rfl
+        | succ k =>
+          have hk : k < xs.length := by simp at hn; omega
+          have hh := helem k hk
+          show (x :: xs)[k+1]! = (x :: ys)[k+1]!
+          rw [List.getElem!_eq_getElem?_getD, List.getElem!_eq_getElem?_getD]
+          rw [List.getElem!_eq_getElem?_getD, List.getElem!_eq_getElem?_getD] at hh
+          simp only [List.getElem?_cons_succ]
+          exact hh
+      · rintro ⟨hle, helem⟩
+        have hxy : x = y := by
+          have := helem 0 (by simp)
+          show x = y
+          have h := this
+          show x = y
+          have : (x :: xs)[0]! = (y :: ys)[0]! := h
+          simpa using this
+        refine ⟨hxy, ?_⟩
+        rw [ih ys]
+        refine ⟨by omega, ?_⟩
+        intro n hn
+        have := helem (n + 1) (by simp; omega)
+        show xs[n]! = ys[n]!
+        have : (x :: xs)[n+1]! = (y :: ys)[n+1]! := this
+        simpa using this
 /- HOL4:
 Theorem FST_pair:
   (λ(n,v). n) = FST
