@@ -68,7 +68,7 @@ End
   with complex termination (clock-based). We use mutual partial def.
 -/
 mutual
-def evaluate {ffi : Type} (st : cml_state ffi) (env : sem_env)
+partial def evaluate {ffi : Type} (st : cml_state ffi) (env : sem_env)
     (es : List exp) : cml_state ffi × result (List v) v :=
   match es with
   | [] => (st, .Rval [])
@@ -191,10 +191,8 @@ def evaluate {ffi : Type} (st : cml_state ffi) (env : sem_env)
       | (st'', .Rval vs) => (st'', .Rval (v1.head! :: vs))
       | (st'', .Rerr e) => (st'', .Rerr e)
     | (st', .Rerr e) => (st', .Rerr e)
-  termination_by 0
-  decreasing_by all_goals sorry
 
-def evaluate_match {ffi : Type} (st : cml_state ffi) (env : sem_env)
+partial def evaluate_match {ffi : Type} (st : cml_state ffi) (env : sem_env)
     (val_ : v) (pes : List (pat × exp)) (err_v : v) :
     cml_state ffi × result (List v) v :=
   match pes with
@@ -207,10 +205,8 @@ def evaluate_match {ffi : Type} (st : cml_state ffi) (env : sem_env)
       | .Match env_v' =>
         evaluate st (.mk (nsAppend (alist_to_ns env_v') env.v_) env.c) [e]
     else (st, .Rerr (.Rabort .Rtype_error))
-  termination_by 0
-  decreasing_by all_goals sorry
 
-def evaluate_decs {ffi : Type} (st : cml_state ffi) (env : sem_env)
+partial def evaluate_decs {ffi : Type} (st : cml_state ffi) (env : sem_env)
     (ds : List dec) : cml_state ffi × result sem_env v :=
   match ds with
   | [] => (st, .Rval (.mk nsEmpty nsEmpty))
@@ -261,8 +257,6 @@ def evaluate_decs {ffi : Type} (st : cml_state ffi) (env : sem_env)
       match evaluate_decs st1 (extend_dec_env env1 env) (d2 :: ds') with
       | (st2, r) => (st2, combine_dec_result env1 r)
     | (st1, .Rerr e) => (st1, .Rerr e)
-  termination_by 0
-  decreasing_by all_goals sorry
 end
 
 -- Theorem stubs
@@ -298,4 +292,6 @@ Theorem fix_clock_do_eval_res:
 -/
 theorem fix_clock_do_eval_res {ffi : Type}
     (s : cml_state ffi) (vs : List v) :
-    fix_clock s (do_eval_res vs s) = do_eval_res vs s := sorry
+    fix_clock s (do_eval_res vs s) = do_eval_res vs s := by
+  unfold fix_clock do_eval_res
+  cases do_eval vs s.eval_state_field <;> simp

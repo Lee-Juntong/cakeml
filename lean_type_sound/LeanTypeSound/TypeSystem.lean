@@ -87,9 +87,14 @@ End
 -/
 def check_freevars : Nat → List mlstring → sem_t → Bool
   | _, tvs, .Tvar tv => tvs.any (· == tv)
-  | dbmax, tvs, .Tapp ts _ => ts.all (check_freevars dbmax tvs)
+  | dbmax, tvs, .Tapp ts _ =>
+    ts.attach.all fun ⟨t, _⟩ => check_freevars dbmax tvs t
   | dbmax, _, .Tvar_db n => n < dbmax
-decreasing_by all_goals sorry
+decreasing_by
+  rename_i h
+  have := List.sizeOf_lt_of_mem h
+  simp at *
+  omega
 
 /- HOL4:
 Definition check_freevars_ast_def: ...
@@ -97,10 +102,13 @@ End
 -/
 def check_freevars_ast : List mlstring → ast_t → Bool
   | tvs, .Atvar tv => tvs.any (· == tv)
-  | tvs, .Attup ts => ts.all (check_freevars_ast tvs)
+  | tvs, .Attup ts => ts.attach.all fun ⟨t, _⟩ => check_freevars_ast tvs t
   | tvs, .Atfun t1 t2 => check_freevars_ast tvs t1 && check_freevars_ast tvs t2
-  | tvs, .Atapp ts _ => ts.all (check_freevars_ast tvs)
-decreasing_by all_goals sorry
+  | tvs, .Atapp ts _ => ts.attach.all fun ⟨t, _⟩ => check_freevars_ast tvs t
+decreasing_by
+  all_goals first
+    | decreasing_tactic
+    | (rename_i h; have := List.sizeOf_lt_of_mem h; simp at *; omega)
 
 -- ============================================================
 -- Type substitution and de Bruijn operations
@@ -367,14 +375,17 @@ End
 -/
 def check_type_names (tenvT : tenv_abbrev) : ast_t → Bool
   | .Atvar _ => true
-  | .Attup ts => ts.all (check_type_names tenvT)
+  | .Attup ts => ts.attach.all fun ⟨t, _⟩ => check_type_names tenvT t
   | .Atfun t1 t2 => check_type_names tenvT t1 && check_type_names tenvT t2
   | .Atapp ts tn =>
     (match nsLookup tenvT tn with
      | some (tvs, _) => tvs.length == ts.length
      | none => false) &&
-    ts.all (check_type_names tenvT)
-decreasing_by all_goals sorry
+    ts.attach.all fun ⟨t, _⟩ => check_type_names tenvT t
+decreasing_by
+  all_goals first
+    | decreasing_tactic
+    | (rename_i h; have := List.sizeOf_lt_of_mem h; simp at *; omega)
 
 /- HOL4:
 Definition type_name_subst_def: ...
@@ -429,13 +440,16 @@ End
 -/
 def is_value : exp → Bool
   | .Lit _ => true
-  | .Con _ es => es.all is_value
+  | .Con _ es => es.attach.all fun ⟨e, _⟩ => is_value e
   | .Var _ => true
   | .Fun _ _ => true
   | .Tannot e _ => is_value e
   | .Lannot e _ => is_value e
   | _ => false
-decreasing_by all_goals sorry
+decreasing_by
+  all_goals first
+    | decreasing_tactic
+    | (rename_i h; have := List.sizeOf_lt_of_mem h; simp at *; omega)
 
 -- ============================================================
 -- Inductive relation: type_p / type_ps

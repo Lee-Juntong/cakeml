@@ -43,13 +43,17 @@ Theorem fst_triple[local]:
   (\ (x,y,z). x) = FST
 -/
 theorem fst_triple {α β γ : Type} :
-    (fun ((x, _, _) : α × β × γ) => x) = (fun (p : α × β × γ) => p.1) := sorry
+    (fun ((x, _, _) : α × β × γ) => x) = (fun (p : α × β × γ) => p.1) := rfl
 /- HOL4:
 Theorem sing_list[local]:
   !l. LENGTH l = 1 ⇔ ?x. l = [x]
 -/
 theorem sing_list {α : Type} :
-    ∀ (l : List α), l.length = 1 ↔ ∃ (x : α), l = [x] := sorry
+    ∀ (l : List α), l.length = 1 ↔ ∃ (x : α), l = [x] := by
+  intro l
+  cases l with
+  | nil => simp
+  | cons x xs => cases xs <;> simp
 /- HOL4:
 Theorem EVERY_LIST_REL[local]:
   EVERY (\x. f x y) l = LIST_REL (\x y. f x y) l (REPLICATE (LENGTH l) y)
@@ -62,7 +66,8 @@ Theorem v_unchanged[simp]:
   !tenv x. tenv with v := tenv.v = tenv
 -/
 theorem v_unchanged :
-    ∀ (tenv : type_env), { tenv with v := tenv.v } = tenv := sorry
+    ∀ (tenv : type_env), { tenv with v := tenv.v } = tenv := by
+  intro tenv; cases tenv; rfl
 /- HOL4:
 Theorem check_dup_ctors_thm:
   check_dup_ctors (tvs,tn,condefs) = ALL_DISTINCT (MAP FST condefs)
@@ -195,7 +200,8 @@ Theorem same_type_refl[local]:
   !t. same_type t t
 -/
 theorem same_type_refl :
-    ∀ (t : stamp), same_type t t := sorry
+    ∀ (t : stamp), same_type t t := by
+  intro t; cases t <;> simp [same_type]
 /- HOL4:
 Theorem eq_same_type[local]:
   (!v1 v2 tvs ctMap cns tenvS t.
@@ -343,7 +349,8 @@ Theorem remove_lambda_prod[local]:
 -/
 theorem remove_lambda_prod {α β γ : Type} :
     ∀ (P : α → β → γ),
-      (fun ((x, y) : α × β) => P x y) = (fun (p : α × β) => P p.1 p.2) := sorry
+      (fun ((x, y) : α × β) => P x y) = (fun (p : α × β) => P p.1 p.2) :=
+  fun _ => rfl
 /- HOL4:
 Theorem opapp_type_sound:
   !ctMap tenvS vs ts t.
@@ -378,13 +385,28 @@ Theorem store_type_extension_weakS:
 -/
 theorem store_type_extension_weakS :
     ∀ (tenvS1 tenvS2 : tenv_store),
-      store_type_extension tenvS1 tenvS2 → weakS tenvS2 tenvS1 := sorry
+      store_type_extension tenvS1 tenvS2 → weakS tenvS2 tenvS1 := by
+  intro tenvS1 tenvS2 ⟨tenvS', heq, hl⟩
+  unfold weakS Finmap.SUBMAP
+  intro k val_ h1
+  rw [heq]
+  unfold Finmap.FUNION
+  cases hh : tenvS' k with
+  | none => exact h1
+  | some v =>
+    cases hl k with
+    | inl h => unfold Finmap.FLOOKUP at h; rw [h] at hh; cases hh
+    | inr h => unfold Finmap.FLOOKUP at h; rw [h] at h1; cases h1
 /- HOL4:
 Theorem store_type_extension_refl:
   !tenvS. store_type_extension tenvS tenvS
 -/
 theorem store_type_extension_refl :
-    ∀ (tenvS : tenv_store), store_type_extension tenvS tenvS := sorry
+    ∀ (tenvS : tenv_store), store_type_extension tenvS tenvS := by
+  intro tenvS
+  refine ⟨Finmap.FEMPTY, ?_, ?_⟩
+  · funext k; simp [Finmap.FUNION, Finmap.FEMPTY]
+  · intro l; left; rfl
 /- HOL4:
 Theorem store_type_extension_trans:
   !s1 s2 s3.

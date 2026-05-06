@@ -177,22 +177,23 @@ def shift_lookup_64 : shift → word64 → Nat → word64
    (env:'v sem_env) with v := env.v = env
 -/
 theorem with_same_v (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by cases env; rfl
 /- HOL4: Theorem unchanged_env[simp]:
    !(env : 'a sem_env). <| v := env.v; c := env.c |> = env
 -/
 theorem unchanged_env (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by cases env; rfl
 /- HOL4: Theorem with_same_clock:
    (st:'ffi state) with clock := st.clock = st
 -/
 theorem with_same_clock {ffi : Type} (st : cml_state ffi) :
-    { st with clock := st.clock } = st := sorry
+    { st with clock := st.clock } = st := by cases st; rfl
 /- HOL4: Theorem Boolv_11[simp]:
    Boolv b1 = Boolv b2 <=> (b1 = b2)
 -/
 theorem Boolv_11 (b1 b2 : Bool) :
-    Boolv b1 = Boolv b2 ↔ b1 = b2 := sorry
+    Boolv b1 = Boolv b2 ↔ b1 = b2 := by
+  cases b1 <;> cases b2 <;> simp [Boolv]
 /- HOL4: Theorem extend_dec_env_assoc[simp]:
    !env1 env2 env3.
     extend_dec_env env1 (extend_dec_env env2 env3)
@@ -200,7 +201,12 @@ theorem Boolv_11 (b1 b2 : Bool) :
 -/
 theorem extend_dec_env_assoc (env1 env2 env3 : sem_env) :
     extend_dec_env env1 (extend_dec_env env2 env3) =
-    extend_dec_env (extend_dec_env env1 env2) env3 := sorry
+    extend_dec_env (extend_dec_env env1 env2) env3 := by
+  obtain ⟨v1, c1⟩ := env1
+  obtain ⟨v2, c2⟩ := env2
+  obtain ⟨v3, c3⟩ := env3
+  cases v1 <;> cases v2 <;> cases v3 <;> cases c1 <;> cases c2 <;> cases c3 <;>
+    simp [extend_dec_env, sem_env.v_, sem_env.c, nsAppend, List.append_assoc]
 /- HOL4: Theorem pat_bindings_accum:
    (!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) /\
    (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)
@@ -209,7 +215,60 @@ theorem pat_bindings_accum :
     (∀ (p : pat) (acc : List varN),
       pat_bindings p acc = pat_bindings p [] ++ acc) ∧
     (∀ (ps : List pat) (acc : List varN),
-      pats_bindings ps acc = pats_bindings ps [] ++ acc) := sorry
+      pats_bindings ps acc = pats_bindings ps [] ++ acc) := by
+  -- Induction on the combined size n = sizeOf x
+  have key : ∀ n,
+      (∀ (p : pat) (acc : List varN), sizeOf p ≤ n →
+        pat_bindings p acc = pat_bindings p [] ++ acc) ∧
+      (∀ (ps : List pat) (acc : List varN), sizeOf ps ≤ n →
+        pats_bindings ps acc = pats_bindings ps [] ++ acc) := by
+    intro n
+    induction n with
+    | zero =>
+      refine ⟨fun p acc hp => ?_, fun ps acc hp => ?_⟩
+      · exfalso
+        have : 0 < sizeOf p := by cases p <;> simp <;> omega
+        omega
+      · cases ps with
+        | nil => simp [pats_bindings]
+        | cons p ps' =>
+          exfalso
+          simp at hp
+    | succ k ih =>
+      obtain ⟨ih1, ih2⟩ := ih
+      refine ⟨fun p acc hp => ?_, fun ps acc hp => ?_⟩
+      · cases p with
+        | Pany => simp [pat_bindings]
+        | Pvar n => simp [pat_bindings]
+        | Plit _ => simp [pat_bindings]
+        | Pcon _ ps =>
+          simp only [pat_bindings]
+          have hps : sizeOf ps ≤ k := by simp at hp; omega
+          exact ih2 ps acc hps
+        | Pref p =>
+          simp only [pat_bindings]
+          have hp' : sizeOf p ≤ k := by simp at hp; omega
+          exact ih1 p acc hp'
+        | Pas p i =>
+          simp only [pat_bindings]
+          have hp' : sizeOf p ≤ k := by simp at hp; omega
+          rw [ih1 p (i :: acc) hp', ih1 p [i] hp', List.append_assoc]; rfl
+        | Ptannot p _ =>
+          simp only [pat_bindings]
+          have hp' : sizeOf p ≤ k := by simp at hp; omega
+          exact ih1 p acc hp'
+      · cases ps with
+        | nil => simp [pats_bindings]
+        | cons p ps' =>
+          simp only [pats_bindings]
+          have hp1 : sizeOf p ≤ k := by simp at hp; omega
+          have hps : sizeOf ps' ≤ k := by simp at hp; omega
+          rw [ih1 p acc hp1, ih2 ps' (pat_bindings p [] ++ acc) hps,
+            ih2 ps' (pat_bindings p []) hps]
+          simp [List.append_assoc]
+  refine ⟨fun p acc => ?_, fun ps acc => ?_⟩
+  · exact (key (sizeOf p)).1 p acc Nat.le.refl
+  · exact (key (sizeOf ps)).2 ps acc Nat.le.refl
 /- HOL4: Theorem do_app_cases:
    Computed theorem: expands do_app into disjunctive normal form.
    In Lean, this is the definitional unfolding of do_app.
@@ -218,7 +277,7 @@ theorem do_app_cases {ffi : Type} :
     ∀ (s : List (store_v v) ) (t : ffi_state ffi) (op_ : op) (vs : List v)
       (st' : List (store_v v) × ffi_state ffi) (r : result v v),
     do_app (s, t) op_ vs = some (st', r) ↔
-    do_app (s, t) op_ vs = some (st', r) := sorry
+    do_app (s, t) op_ vs = some (st', r) := fun _ _ _ _ _ _ => Iff.rfl
 /- HOL4: Theorem build_rec_env_merge:
    !funs funs' env env'.
     build_rec_env funs env env' =
@@ -228,7 +287,35 @@ theorem build_rec_env_merge
     (funs : List (varN × varN × exp)) (env : sem_env)
     (env' : «namespace» modN varN v) :
     build_rec_env funs env env' =
-    nsAppend (alist_to_ns (funs.map (fun (f, _, _) => (f, v.Recclosure env funs f)))) env' := sorry
+    nsAppend (alist_to_ns (funs.map (fun (f, _, _) => (f, v.Recclosure env funs f)))) env' := by
+  cases env' with
+  | Bind v2 m2 =>
+    unfold build_rec_env
+    -- generalize the closure-environment so induction works
+    suffices h : ∀ (fs : List (varN × varN × exp)),
+        fs.foldr
+          (fun (x : varN × varN × exp) env' =>
+            nsBind x.1 (v.Recclosure env funs x.1) env')
+          (.Bind v2 m2) =
+        nsAppend (alist_to_ns
+          (fs.map (fun x => (x.1, v.Recclosure env funs x.1)))) (.Bind v2 m2) by
+      simpa using h funs
+    intro fs
+    induction fs with
+    | nil => simp [nsAppend, alist_to_ns]
+    | cons fne fs ih =>
+      simp only [List.foldr_cons, List.map_cons, alist_to_ns]
+      have step :
+          nsBind fne.1 (v.Recclosure env funs fne.1)
+              (List.foldr
+                (fun x env' => nsBind x.1 (v.Recclosure env funs x.1) env')
+                (.Bind v2 m2) fs) =
+            nsBind fne.1 (v.Recclosure env funs fne.1)
+              (nsAppend
+                (alist_to_ns (fs.map fun x => (x.1, v.Recclosure env funs x.1)))
+                (.Bind v2 m2)) := by rw [ih]
+      rw [step]
+      simp [nsBind, nsAppend, alist_to_ns]
 /- HOL4: Theorem do_con_check_build_conv:
    !tenvC cn vs l.
     do_con_check tenvC cn l ==> ?v. build_conv tenvC cn vs = SOME v
@@ -237,7 +324,18 @@ theorem do_con_check_build_conv
     (tenvC : env_ctor) (cn : Option (cml_id modN conN))
     (vs : List v) (l : Nat) :
     do_con_check tenvC cn l = true →
-    ∃ val, build_conv tenvC cn vs = some val := sorry
+    ∃ val, build_conv tenvC cn vs = some val := by
+  intro h
+  unfold do_con_check at h
+  unfold build_conv
+  cases cn with
+  | none => exact ⟨_, rfl⟩
+  | some n =>
+    cases hlk : nsLookup tenvC n with
+    | none => simp [hlk] at h
+    | some p =>
+      obtain ⟨l', stmp⟩ := p
+      simp [hlk]
 /- HOL4: Theorem FV_pes_MAP:
    FV_pes pes = BIGUNION (IMAGE (\(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))
 -/
@@ -256,7 +354,10 @@ theorem FV_defs_MAP (ls : List (varN × varN × exp)) :
    !xs. concrete_v_list xs = EVERY concrete_v xs
 -/
 theorem concrete_v_list_thm (xs : List v) :
-    concrete_v_list xs = xs.all concrete_v := sorry
+    concrete_v_list xs = xs.all concrete_v := by
+  induction xs with
+  | nil => simp [concrete_v_list]
+  | cons x xs ih => simp [concrete_v_list, ih]
 /- HOL4: Theorem prim_type_cases:
    !ty. ty = BoolT \/ ty = IntT \/ ty = CharT \/ ty = StrT \/
         ty = WordT W8 \/ ty = WordT W64 \/ ty = Float64T
@@ -268,4 +369,14 @@ theorem prim_type_cases (ty : prim_type) :
     ty = .StrT ∨
     ty = .WordT .W8 ∨
     ty = .WordT .W64 ∨
-    ty = .Float64T := sorry
+    ty = .Float64T := by
+  cases ty with
+  | BoolT => left; rfl
+  | IntT => right; left; rfl
+  | CharT => right; right; left; rfl
+  | StrT => right; right; right; left; rfl
+  | WordT w =>
+    cases w with
+    | W8 => right; right; right; right; left; rfl
+    | W64 => right; right; right; right; right; left; rfl
+  | Float64T => right; right; right; right; right; right; rfl

@@ -71,7 +71,7 @@ Theorem weakS_refl:
    !tenvS. weakS tenvS tenvS
 -/
 theorem weakS_refl :
-    ∀ (tenvS : tenv_store), weakS tenvS tenvS := sorry
+    ∀ (tenvS : tenv_store), weakS tenvS tenvS := fun _ _ _ h => h
 /- HOL4:
 Theorem weak_tenvE_freevars[local]:
   !tenv tenv' tvs t.
@@ -229,7 +229,7 @@ Theorem gt_0[local]:
   !x:num.x ≥ 0
 -/
 theorem gt_0 :
-    ∀ (x : Nat), x ≥ 0 := sorry
+    ∀ (x : Nat), x ≥ 0 := fun _ => Nat.zero_le _
 /- HOL4:
 Theorem weak_ctMap_lookup[local]:
   ∀ctMap ctMap' tvs ts stamp.
@@ -241,19 +241,24 @@ Theorem weak_ctMap_lookup[local]:
 theorem weak_ctMap_lookup :
     ∀ (cm cm' : ctMap) (tvs : List tvarN) (ts : List sem_t × type_ident) (stmp : stamp),
       weakCT cm' cm ∧ Finmap.FLOOKUP cm stmp = some (tvs, ts) →
-      Finmap.FLOOKUP cm' stmp = some (tvs, ts) := sorry
+      Finmap.FLOOKUP cm' stmp = some (tvs, ts) := by
+  intro cm cm' tvs ts stmp ⟨h1, hlk⟩
+  exact h1 stmp (tvs, ts) hlk
 /- HOL4:
 Theorem weakCT_refl:
  !ctMap. weakCT ctMap ctMap
 -/
 theorem weakCT_refl :
-    ∀ (cm : ctMap), weakCT cm cm := sorry
+    ∀ (cm : ctMap), weakCT cm cm := fun _ _ _ h => h
 /- HOL4:
 Theorem weakCT_trans:
  weakCT C1 C2 ∧ weakCT C2 C3 ⇒ weakCT C1 C3
 -/
 theorem weakCT_trans :
-    ∀ (C1 C2 C3 : ctMap), weakCT C1 C2 ∧ weakCT C2 C3 → weakCT C1 C3 := sorry
+    ∀ (C1 C2 C3 : ctMap), weakCT C1 C2 ∧ weakCT C2 C3 → weakCT C1 C3 := by
+  intro C1 C2 C3 ⟨h1, h2⟩
+  intro k val_ hlk
+  exact h1 k val_ (h2 k val_ hlk)
 /- HOL4:
 Theorem disjoint_env_weakCT:
  !ctMap ctMap'.
@@ -263,7 +268,21 @@ Theorem disjoint_env_weakCT:
 theorem disjoint_env_weakCT :
     ∀ (cm cm' : ctMap),
       Set.Disjoint (Finmap.FDOM cm') (Finmap.FDOM cm) →
-      weakCT (Finmap.FUNION cm' cm) cm := sorry
+      weakCT (Finmap.FUNION cm' cm) cm := by
+  intro cm cm' hdisj
+  unfold weakCT Finmap.SUBMAP
+  intro k val_ hcm
+  unfold Finmap.FUNION
+  have hk_cm : k ∈ Finmap.FDOM cm := by show (cm k).isSome = true; simp [hcm]
+  have hcm'_none : cm' k = none := by
+    cases hh : cm' k with
+    | none => rfl
+    | some v =>
+      exfalso
+      have hk_cm' : k ∈ Finmap.FDOM cm' := by
+        show (cm' k).isSome = true; rw [hh]; rfl
+      exact hdisj k ⟨hk_cm', hk_cm⟩
+  rw [hcm'_none]; exact hcm
 /- HOL4:
 Theorem type_tenv_ctor_weakening:
  !ctMap tenvC envC ctMap'.

@@ -14,8 +14,6 @@ End
 -/
 def sort {α : Type} (cmp : α → α → ordering) (l : List α) : List α :=
   l.mergeSort (fun a b => cmp a b != .GREATER)
-  termination_by 0
-  decreasing_by all_goals sorry
 
 /- HOL4:
 Definition nth_def:

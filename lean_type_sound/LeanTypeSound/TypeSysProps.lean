@@ -111,7 +111,8 @@ Theorem unchanged_tenv[simp]:
 -/
 theorem unchanged_tenv :
     ∀ (tenv : type_env),
-      { v := tenv.v, c := tenv.c, t := tenv.t : type_env} = tenv := sorry
+      { v := tenv.v, c := tenv.c, t := tenv.t : type_env} = tenv := by
+  intro tenv; cases tenv; rfl
 /- HOL4:
 Theorem extend_dec_tenv_assoc[simp]:
    !tenv1 tenv2 tenv3.
@@ -122,31 +123,35 @@ Theorem extend_dec_tenv_assoc[simp]:
 theorem extend_dec_tenv_assoc_thm :
     ∀ (tenv1 tenv2 tenv3 : type_env),
       extend_dec_tenv tenv1 (extend_dec_tenv tenv2 tenv3) =
-      extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3 := sorry
+      extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3 := by
+  intro tenv1 tenv2 tenv3
+  unfold extend_dec_tenv
+  simp [nsAppend_assoc]
 /- HOL4:
 Theorem tenv_val_ok_nsEmpty[simp]:
    tenv_val_ok nsEmpty
 -/
 theorem tenv_val_ok_nsEmpty :
-    tenv_val_ok nsEmpty := sorry
+    tenv_val_ok nsEmpty := nsAll_nsEmpty _
 /- HOL4:
 Theorem tenv_ctor_ok_nsEmpty[simp]:
    tenv_ctor_ok nsEmpty
 -/
 theorem tenv_ctor_ok_nsEmpty :
-    tenv_ctor_ok nsEmpty := sorry
+    tenv_ctor_ok nsEmpty := nsAll_nsEmpty _
 /- HOL4:
 Theorem tenv_abbrev_ok_nsEmpty[simp]:
    tenv_abbrev_ok nsEmpty
 -/
 theorem tenv_abbrev_ok_nsEmpty :
-    tenv_abbrev_ok nsEmpty := sorry
+    tenv_abbrev_ok nsEmpty := nsAll_nsEmpty _
 /- HOL4:
 Theorem tenv_ok_empty[simp]:
    tenv_ok <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>
 -/
 theorem tenv_ok_empty :
-    tenv_ok { v := nsEmpty, c := nsEmpty, t := nsEmpty } := sorry
+    tenv_ok { v := nsEmpty, c := nsEmpty, t := nsEmpty } :=
+  ⟨tenv_val_ok_nsEmpty, tenv_ctor_ok_nsEmpty, tenv_abbrev_ok_nsEmpty⟩
 /- HOL4:
 Theorem check_freevars_add:
  (!tvs tvs' t. check_freevars tvs tvs' t ⇒
