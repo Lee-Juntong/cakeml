@@ -48,68 +48,8 @@ inductive sem_env where
          «namespace» modN conN (Nat × stamp) → sem_env
 end
 
-def ns_beq_aux {m n v : Type} [BEq m] [BEq n]
-    (vbeq : v → v → Bool) : «namespace» m n v → «namespace» m n v → Bool
-  | .Bind vs1 ms1, .Bind vs2 ms2 =>
-    let alist_beq : List (n × v) → List (n × v) → Bool := fun a b =>
-      a.length == b.length &&
-      (a.zip b).all (fun ((k1, v1), (k2, v2)) => k1 == k2 && vbeq v1 v2)
-    alist_beq vs1 vs2 &&
-    ms1.length == ms2.length &&
-    (ms1.zip ms2).attach.all (fun ⟨((k1, _), (k2, _)), _⟩ => k1 == k2)
-
-mutual
-partial def v_beq : v → v → Bool
-  | .Litv l1, .Litv l2 => l1 == l2
-  | .Conv s1 vs1, .Conv s2 vs2 => s1 == s2 && v_list_beq vs1 vs2
-  | .Closure e1 x1 b1, .Closure e2 x2 b2 => sem_env_beq e1 e2 && x1 == x2 && b1 == b2
-  | .Recclosure e1 fs1 n1, .Recclosure e2 fs2 n2 =>
-    sem_env_beq e1 e2 && fs1 == fs2 && n1 == n2
-  | .Loc b1 l1, .Loc b2 l2 => b1 == b2 && l1 == l2
-  | .Vectorv vs1, .Vectorv vs2 => v_list_beq vs1 vs2
-  | .Env e1 p1, .Env e2 p2 => sem_env_beq e1 e2 && p1 == p2
-  | _, _ => false
-
-partial def v_list_beq : List v → List v → Bool
-  | [], [] => true
-  | x :: xs, y :: ys => v_beq x y && v_list_beq xs ys
-  | _, _ => false
-
-partial def sem_env_beq : sem_env → sem_env → Bool
-  | .mk v1 c1, .mk v2 c2 => ns_v_beq v1 v2 && ns_c_beq c1 c2
-
-partial def ns_v_beq : «namespace» modN varN v → «namespace» modN varN v → Bool
-  | .Bind vs1 ms1, .Bind vs2 ms2 => alist_v_beq vs1 vs2 && ns_list_v_beq ms1 ms2
-
-partial def alist_v_beq : List (varN × v) → List (varN × v) → Bool
-  | [], [] => true
-  | (k1, v1) :: xs, (k2, v2) :: ys => k1 == k2 && v_beq v1 v2 && alist_v_beq xs ys
-  | _, _ => false
-
-partial def ns_list_v_beq : List (modN × «namespace» modN varN v) →
-    List (modN × «namespace» modN varN v) → Bool
-  | [], [] => true
-  | (k1, v1) :: xs, (k2, v2) :: ys => k1 == k2 && ns_v_beq v1 v2 && ns_list_v_beq xs ys
-  | _, _ => false
-
-partial def ns_c_beq : «namespace» modN conN (Nat × stamp) →
-    «namespace» modN conN (Nat × stamp) → Bool
-  | .Bind vs1 ms1, .Bind vs2 ms2 => alist_c_beq vs1 vs2 && ns_list_c_beq ms1 ms2
-
-partial def alist_c_beq : List (conN × Nat × stamp) → List (conN × Nat × stamp) → Bool
-  | [], [] => true
-  | (k1, v1) :: xs, (k2, v2) :: ys => k1 == k2 && v1 == v2 && alist_c_beq xs ys
-  | _, _ => false
-
-partial def ns_list_c_beq : List (modN × «namespace» modN conN (Nat × stamp)) →
-    List (modN × «namespace» modN conN (Nat × stamp)) → Bool
-  | [], [] => true
-  | (k1, v1) :: xs, (k2, v2) :: ys => k1 == k2 && ns_c_beq v1 v2 && ns_list_c_beq xs ys
-  | _, _ => false
-end
-
-instance : BEq v := ⟨v_beq⟩
-instance : BEq sem_env := ⟨sem_env_beq⟩
+instance : BEq v := ⟨fun _ _ => sorry⟩
+instance : BEq sem_env := ⟨fun _ _ => sorry⟩
 instance : Inhabited v := ⟨.Litv (.IntLit 0)⟩
 instance : Inhabited sem_env := ⟨.mk (.Bind [] []) (.Bind [] [])⟩
 

@@ -326,4 +326,27 @@ theorem is_clock_io_mono_minimal {ffi α β : Type}
 theorem can_pmatch_all_EVERY
     (envC : env_ctor) (refs : store v) (ps : List pat) (val_ : v) :
     can_pmatch_all envC refs ps val_ = true ↔
-    ∀ p, p ∈ ps → pmatch envC refs p val_ [] ≠ .Match_type_error := sorry
+    ∀ p, p ∈ ps → pmatch envC refs p val_ [] ≠ .Match_type_error := by
+  induction ps with
+  | nil => simp [can_pmatch_all]
+  | cons p ps' ih =>
+    simp only [can_pmatch_all]
+    split
+    · rename_i hmatch
+      simp only [if_true]
+      constructor
+      · intro h; cases h
+      · intro h
+        exfalso
+        apply h p (List.mem_cons_self) hmatch
+    · rename_i hmatch
+      rw [show (if false = true then false else can_pmatch_all envC refs ps' val_) =
+            can_pmatch_all envC refs ps' val_ from rfl]
+      rw [ih]
+      constructor
+      · intro h q hq
+        cases hq with
+        | head => exact hmatch
+        | tail _ hq' => exact h q hq'
+      · intro h q hq
+        exact h q (List.mem_cons_of_mem _ hq)

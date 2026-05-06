@@ -52,12 +52,13 @@ Definition nsSub_compute_def:
     alistSub (λk v1 v2. nsSub_compute (k::path) R v1 v2) e1M e2M
 End
 -/
-partial def nsSub_compute {m n v1 v2 : Type} [BEq m] [BEq n]
+def nsSub_compute {m n v1 v2 : Type} [BEq m] [BEq n]
     (path : List m) (R : cml_id m n → v1 → v2 → Prop) :
     «namespace» m n v1 → «namespace» m n v2 → Prop
   | .Bind e1V e1M, .Bind e2V e2M =>
     alistSub (fun k val1 val2 => R (mk_id path.reverse k) val1 val2) e1V e2V ∧
     alistSub (fun k val1 val2 => nsSub_compute (k :: path) R val1 val2) e1M e2M
+  decreasing_by all_goals sorry
 
 -- ============================================================
 -- Theorem stubs

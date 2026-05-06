@@ -181,9 +181,29 @@ Theorem deBruijn_inc0:
  (!t sk. deBruijn_inc sk 0 t = t) ∧
  (!ts sk. MAP (deBruijn_inc sk 0) ts = ts)
 -/
+private theorem map_id_of_id_on_mem {α : Type} (f : α → α) (l : List α)
+    (h : ∀ x ∈ l, f x = x) : l.map f = l := by
+  induction l with
+  | nil => rfl
+  | cons x xs ih =>
+    simp [List.map_cons]
+    exact ⟨h x List.mem_cons_self, ih (fun y hy => h y (List.mem_cons_of_mem x hy))⟩
+
 theorem deBruijn_inc0 :
     (∀ (t : sem_t) (sk : Nat), deBruijn_inc sk 0 t = t) ∧
-    (∀ (ts : List sem_t) (sk : Nat), ts.map (deBruijn_inc sk 0) = ts) := sorry
+    (∀ (ts : List sem_t) (sk : Nat), ts.map (deBruijn_inc sk 0) = ts) := by
+  have key : ∀ (sk : Nat) (t : sem_t), deBruijn_inc sk 0 t = t := by
+    intro sk t
+    induction t using deBruijn_inc.induct sk with
+    | case1 a => simp [deBruijn_inc]
+    | case2 a h => simp [deBruijn_inc, h]
+    | case3 a h => simp [deBruijn_inc, h]
+    | case4 ts tn ih =>
+      simp only [deBruijn_inc]
+      congr 1
+      exact map_id_of_id_on_mem _ _ ih
+  refine ⟨fun t sk => key sk t, fun ts sk => ?_⟩
+  exact map_id_of_id_on_mem _ _ (fun x _ => key sk x)
 /- HOL4:
 Theorem deBruijn_inc_deBruijn_inc:
  !sk i2 t i1.
