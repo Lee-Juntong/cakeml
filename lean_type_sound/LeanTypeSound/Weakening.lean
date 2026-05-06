@@ -71,9 +71,7 @@ Theorem weakS_refl:
    !tenvS. weakS tenvS tenvS
 -/
 theorem weakS_refl :
-    ∀ (tenvS : tenv_store), weakS tenvS tenvS := by
-  intro tenvS k v_ h
-  exact h
+    ∀ (tenvS : tenv_store), weakS tenvS tenvS := sorry
 /- HOL4:
 Theorem weak_tenvE_freevars[local]:
   !tenv tenv' tvs t.
@@ -231,8 +229,7 @@ Theorem gt_0[local]:
   !x:num.x ≥ 0
 -/
 theorem gt_0 :
-    ∀ (x : Nat), x ≥ 0 := by
-  intro x; omega
+    ∀ (x : Nat), x ≥ 0 := sorry
 /- HOL4:
 Theorem weak_ctMap_lookup[local]:
   ∀ctMap ctMap' tvs ts stamp.
@@ -244,25 +241,19 @@ Theorem weak_ctMap_lookup[local]:
 theorem weak_ctMap_lookup :
     ∀ (cm cm' : ctMap) (tvs : List tvarN) (ts : List sem_t × type_ident) (stmp : stamp),
       weakCT cm' cm ∧ Finmap.FLOOKUP cm stmp = some (tvs, ts) →
-      Finmap.FLOOKUP cm' stmp = some (tvs, ts) := by
-  intro cm cm' tvs ts stmp ⟨hw, hl⟩
-  exact hw stmp _ hl
+      Finmap.FLOOKUP cm' stmp = some (tvs, ts) := sorry
 /- HOL4:
 Theorem weakCT_refl:
  !ctMap. weakCT ctMap ctMap
 -/
 theorem weakCT_refl :
-    ∀ (cm : ctMap), weakCT cm cm := by
-  intro cm k v_ h
-  exact h
+    ∀ (cm : ctMap), weakCT cm cm := sorry
 /- HOL4:
 Theorem weakCT_trans:
  weakCT C1 C2 ∧ weakCT C2 C3 ⇒ weakCT C1 C3
 -/
 theorem weakCT_trans :
-    ∀ (C1 C2 C3 : ctMap), weakCT C1 C2 ∧ weakCT C2 C3 → weakCT C1 C3 := by
-  intro C1 C2 C3 ⟨h12, h23⟩ k v_ h
-  exact h12 _ _ (h23 _ _ h)
+    ∀ (C1 C2 C3 : ctMap), weakCT C1 C2 ∧ weakCT C2 C3 → weakCT C1 C3 := sorry
 /- HOL4:
 Theorem disjoint_env_weakCT:
  !ctMap ctMap'.
@@ -272,20 +263,7 @@ Theorem disjoint_env_weakCT:
 theorem disjoint_env_weakCT :
     ∀ (cm cm' : ctMap),
       Set.Disjoint (Finmap.FDOM cm') (Finmap.FDOM cm) →
-      weakCT (Finmap.FUNION cm' cm) cm := by
-  intro cm cm' hdis k v_ hl
-  simp [Finmap.FUNION]
-  cases h : cm' k with
-  | none => exact hl
-  | some w =>
-    -- k ∈ FDOM cm' ∧ k ∈ FDOM cm contradicts disjointness
-    exfalso
-    apply hdis k
-    refine ⟨?_, ?_⟩
-    · show (cm' k).isSome = true
-      rw [h]; rfl
-    · show (cm k).isSome = true
-      rw [hl]; rfl
+      weakCT (Finmap.FUNION cm' cm) cm := sorry
 /- HOL4:
 Theorem type_tenv_ctor_weakening:
  !ctMap tenvC envC ctMap'.

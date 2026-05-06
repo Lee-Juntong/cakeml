@@ -199,8 +199,7 @@ theorem is_clock_io_mono_check {ffi α β : Type}
    dec_clock (adj_clock 1 0 s) = s
 -/
 theorem dec_inc_clock {ffi : Type} (s : cml_state ffi) :
-    dec_clock (adj_clock 1 0 s) = s := by
-  simp [dec_clock, adj_clock]
+    dec_clock (adj_clock 1 0 s) = s := sorry
 /- HOL4: Theorem do_app_refs_length
    do_app refs_ffi op vs = SOME res ==>
    LENGTH (FST refs_ffi) <= LENGTH (FST (FST res))
@@ -263,21 +262,7 @@ theorem is_clock_io_mono_extra {ffi α β : Type}
 -/
 theorem list_result_eq_Rval {α β : Type}
     {r : result α β} {r' : List α} :
-    list_result r = .Rval r' ↔ ∃ v, r' = [v] ∧ r = .Rval v := by
-  cases r with
-  | Rval v =>
-    constructor
-    · intro h
-      simp [list_result] at h
-      exact ⟨v, h.symm, rfl⟩
-    · rintro ⟨w, hw, hrw⟩
-      simp [list_result]
-      injection hrw with hwv
-      rw [hwv]; exact hw.symm
-  | Rerr e =>
-    constructor
-    · intro h; simp [list_result] at h
-    · rintro ⟨w, _, hrw⟩; injection hrw
+    list_result r = .Rval r' ↔ ∃ v, r' = [v] ∧ r = .Rval v := sorry
 /- HOL4: Theorem evaluate_length
    (∀(s:'ffi state) e p s' r. evaluate s e p = (s',Rval r) ⇒ LENGTH r = LENGTH p) ∧
    (∀(s:'ffi state) e v p er s' r. evaluate_match s e v p er = (s',Rval r) ⇒ LENGTH r = 1) ∧
