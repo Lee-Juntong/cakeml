@@ -177,22 +177,29 @@ def shift_lookup_64 : shift → word64 → Nat → word64
    (env:'v sem_env) with v := env.v = env
 -/
 theorem with_same_v (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by
+  cases env; rfl
 /- HOL4: Theorem unchanged_env[simp]:
    !(env : 'a sem_env). <| v := env.v; c := env.c |> = env
 -/
 theorem unchanged_env (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by
+  cases env; rfl
 /- HOL4: Theorem with_same_clock:
    (st:'ffi state) with clock := st.clock = st
 -/
 theorem with_same_clock {ffi : Type} (st : cml_state ffi) :
-    { st with clock := st.clock } = st := sorry
+    { st with clock := st.clock } = st := by
+  cases st; rfl
 /- HOL4: Theorem Boolv_11[simp]:
    Boolv b1 = Boolv b2 <=> (b1 = b2)
 -/
 theorem Boolv_11 (b1 b2 : Bool) :
-    Boolv b1 = Boolv b2 ↔ b1 = b2 := sorry
+    Boolv b1 = Boolv b2 ↔ b1 = b2 := by
+  constructor
+  · intro h
+    cases b1 <;> cases b2 <;> simp [Boolv] at h ⊢ <;> first | rfl | trivial
+  · intro h; rw [h]
 /- HOL4: Theorem extend_dec_env_assoc[simp]:
    !env1 env2 env3.
     extend_dec_env env1 (extend_dec_env env2 env3)
@@ -200,7 +207,9 @@ theorem Boolv_11 (b1 b2 : Bool) :
 -/
 theorem extend_dec_env_assoc (env1 env2 env3 : sem_env) :
     extend_dec_env env1 (extend_dec_env env2 env3) =
-    extend_dec_env (extend_dec_env env1 env2) env3 := sorry
+    extend_dec_env (extend_dec_env env1 env2) env3 := by
+  simp only [extend_dec_env]
+  congr 1 <;> exact nsAppend_assoc _ _ _
 /- HOL4: Theorem pat_bindings_accum:
    (!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) /\
    (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)
@@ -218,7 +227,8 @@ theorem do_app_cases {ffi : Type} :
     ∀ (s : List (store_v v) ) (t : ffi_state ffi) (op_ : op) (vs : List v)
       (st' : List (store_v v) × ffi_state ffi) (r : result v v),
     do_app (s, t) op_ vs = some (st', r) ↔
-    do_app (s, t) op_ vs = some (st', r) := sorry
+    do_app (s, t) op_ vs = some (st', r) := by
+  intros; rfl
 /- HOL4: Theorem build_rec_env_merge:
    !funs funs' env env'.
     build_rec_env funs env env' =
@@ -268,4 +278,14 @@ theorem prim_type_cases (ty : prim_type) :
     ty = .StrT ∨
     ty = .WordT .W8 ∨
     ty = .WordT .W64 ∨
-    ty = .Float64T := sorry
+    ty = .Float64T := by
+  cases ty with
+  | BoolT => left; rfl
+  | IntT => right; left; rfl
+  | CharT => right; right; left; rfl
+  | StrT => right; right; right; left; rfl
+  | WordT w =>
+    cases w with
+    | W8 => right; right; right; right; left; rfl
+    | W64 => right; right; right; right; right; left; rfl
+  | Float64T => right; right; right; right; right; right; rfl

@@ -111,7 +111,8 @@ Theorem unchanged_tenv[simp]:
 -/
 theorem unchanged_tenv :
     ∀ (tenv : type_env),
-      { v := tenv.v, c := tenv.c, t := tenv.t : type_env} = tenv := sorry
+      { v := tenv.v, c := tenv.c, t := tenv.t : type_env} = tenv := by
+  intro tenv; rfl
 /- HOL4:
 Theorem extend_dec_tenv_assoc[simp]:
    !tenv1 tenv2 tenv3.
@@ -122,31 +123,43 @@ Theorem extend_dec_tenv_assoc[simp]:
 theorem extend_dec_tenv_assoc_thm :
     ∀ (tenv1 tenv2 tenv3 : type_env),
       extend_dec_tenv tenv1 (extend_dec_tenv tenv2 tenv3) =
-      extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3 := sorry
+      extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3 := by
+  intro tenv1 tenv2 tenv3
+  simp only [extend_dec_tenv, nsAppend_assoc]
 /- HOL4:
 Theorem tenv_val_ok_nsEmpty[simp]:
    tenv_val_ok nsEmpty
 -/
 theorem tenv_val_ok_nsEmpty :
-    tenv_val_ok nsEmpty := sorry
+    tenv_val_ok nsEmpty := by
+  unfold tenv_val_ok nsAll nsEmpty
+  intro id_ val_ h
+  cases id_ <;> simp [nsLookup, ALOOKUP] at h
 /- HOL4:
 Theorem tenv_ctor_ok_nsEmpty[simp]:
    tenv_ctor_ok nsEmpty
 -/
 theorem tenv_ctor_ok_nsEmpty :
-    tenv_ctor_ok nsEmpty := sorry
+    tenv_ctor_ok nsEmpty := by
+  unfold tenv_ctor_ok nsAll nsEmpty
+  intro id_ val_ h
+  cases id_ <;> simp [nsLookup, ALOOKUP] at h
 /- HOL4:
 Theorem tenv_abbrev_ok_nsEmpty[simp]:
    tenv_abbrev_ok nsEmpty
 -/
 theorem tenv_abbrev_ok_nsEmpty :
-    tenv_abbrev_ok nsEmpty := sorry
+    tenv_abbrev_ok nsEmpty := by
+  unfold tenv_abbrev_ok nsAll nsEmpty
+  intro id_ val_ h
+  cases id_ <;> simp [nsLookup, ALOOKUP] at h
 /- HOL4:
 Theorem tenv_ok_empty[simp]:
    tenv_ok <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>
 -/
 theorem tenv_ok_empty :
-    tenv_ok { v := nsEmpty, c := nsEmpty, t := nsEmpty } := sorry
+    tenv_ok { v := nsEmpty, c := nsEmpty, t := nsEmpty } := by
+  exact ⟨tenv_val_ok_nsEmpty, tenv_ctor_ok_nsEmpty, tenv_abbrev_ok_nsEmpty⟩
 /- HOL4:
 Theorem check_freevars_add:
  (!tvs tvs' t. check_freevars tvs tvs' t ⇒
@@ -178,7 +191,22 @@ Theorem deBruijn_inc0:
 -/
 theorem deBruijn_inc0 :
     (∀ (t : sem_t) (sk : Nat), deBruijn_inc sk 0 t = t) ∧
-    (∀ (ts : List sem_t) (sk : Nat), ts.map (deBruijn_inc sk 0) = ts) := sorry
+    (∀ (ts : List sem_t) (sk : Nat), ts.map (deBruijn_inc sk 0) = ts) := by
+  have h1 : ∀ (t : sem_t) (sk : Nat), deBruijn_inc sk 0 t = t := by
+    intro t sk
+    induction t using sem_t.rec
+      (motive_2 := fun ts => ts.map (deBruijn_inc sk 0) = ts) with
+    | Tvar tv => simp [deBruijn_inc]
+    | Tvar_db m => simp [deBruijn_inc]
+    | Tapp ts tn ih => simp [deBruijn_inc, ih]
+    | nil => simp
+    | cons h t ih1 ih2 => simp [ih1, ih2]
+  refine ⟨h1, ?_⟩
+  intro ts sk
+  induction ts with
+  | nil => rfl
+  | cons h t ih =>
+    simp [List.map, h1, ih]
 /- HOL4:
 Theorem deBruijn_inc_deBruijn_inc:
  !sk i2 t i1.
@@ -186,7 +214,26 @@ Theorem deBruijn_inc_deBruijn_inc:
 -/
 theorem deBruijn_inc_deBruijn_inc :
     ∀ (sk i2 : Nat) (t : sem_t) (i1 : Nat),
-      deBruijn_inc sk i1 (deBruijn_inc sk i2 t) = deBruijn_inc sk (i1 + i2) t := sorry
+      deBruijn_inc sk i1 (deBruijn_inc sk i2 t) = deBruijn_inc sk (i1 + i2) t := by
+  intro sk i2 t i1
+  induction t using sem_t.rec
+    (motive_2 := fun ts =>
+      (ts.map (deBruijn_inc sk i2)).map (deBruijn_inc sk i1) =
+      ts.map (deBruijn_inc sk (i1 + i2))) with
+  | Tvar tv => simp [deBruijn_inc]
+  | Tvar_db m =>
+    simp [deBruijn_inc]
+    by_cases h : m < sk
+    · simp [h, deBruijn_inc]
+    · simp [h, deBruijn_inc]
+      have h2 : ¬ (m + i2 < sk) := by omega
+      simp [h2]
+      omega
+  | Tapp ts tn ih =>
+    simp [deBruijn_inc, ih]
+  | nil => simp
+  | cons hd tl ih1 ih2 =>
+    simp [List.map, ih1, ih2]
 /- HOL4: [local]
 Theorem deBuijn_inc_lem1:
   !sk i2 t i1.
@@ -194,7 +241,21 @@ Theorem deBuijn_inc_lem1:
 -/
 theorem deBuijn_inc_lem1 :
     ∀ (sk i2 : Nat) (t : sem_t) (i1 : Nat),
-      deBruijn_inc sk i1 (deBruijn_inc 0 (sk + i2) t) = deBruijn_inc 0 (i1 + (sk + i2)) t := sorry
+      deBruijn_inc sk i1 (deBruijn_inc 0 (sk + i2) t) = deBruijn_inc 0 (i1 + (sk + i2)) t := by
+  intro sk i2 t i1
+  induction t using sem_t.rec
+    (motive_2 := fun ts =>
+      (ts.map (deBruijn_inc 0 (sk + i2))).map (deBruijn_inc sk i1) =
+      ts.map (deBruijn_inc 0 (i1 + (sk + i2)))) with
+  | Tvar tv => simp [deBruijn_inc]
+  | Tvar_db m =>
+    simp [deBruijn_inc]
+    have h1 : ¬ (m + (sk + i2) < sk) := by omega
+    rw [if_neg h1]
+    congr 1; omega
+  | Tapp ts tn ih => simp [deBruijn_inc, ih]
+  | nil => simp
+  | cons hd tl ih1 ih2 => simp [List.map, ih1, ih2]
 /- HOL4: [local]
 Theorem type_subst_deBruijn_inc_single:
   !s t ts tvs inc sk.
@@ -244,7 +305,72 @@ Theorem nil_deBruijn_inc:
 theorem nil_deBruijn_inc :
     ∀ (skip tvs : Nat) (t : sem_t),
       (check_freevars skip [] t ∨ check_freevars skip [] (deBruijn_inc skip tvs t)) →
-      deBruijn_inc skip tvs t = t := sorry
+      deBruijn_inc skip tvs t = t := by
+  intro skip tvs t
+  induction t using sem_t.rec
+    (motive_2 := fun ts =>
+      (ts.all (check_freevars skip []) = true ∨
+        (ts.map (deBruijn_inc skip tvs)).all (check_freevars skip []) = true) →
+      ts.map (deBruijn_inc skip tvs) = ts) with
+  | Tvar tv =>
+    intro h
+    cases h with
+    | inl h => simp [check_freevars] at h
+    | inr h => simp [deBruijn_inc, check_freevars] at h
+  | Tvar_db m =>
+    intro h
+    cases h with
+    | inl h =>
+      simp [check_freevars] at h
+      simp [deBruijn_inc, h]
+    | inr h =>
+      simp [deBruijn_inc] at h
+      split at h
+      · simp [deBruijn_inc, *]
+      · simp [check_freevars] at h
+        rename_i hge
+        omega
+  | Tapp ts tn ih =>
+    intro h
+    simp [deBruijn_inc]
+    apply ih
+    rcases h with h | h
+    · left
+      simp [check_freevars] at h
+      simp [List.all_eq_true]
+      intro x hx
+      exact h x hx
+    · right
+      simp [deBruijn_inc, check_freevars] at h
+      simp [List.all_eq_true]
+      intro x hx
+      exact h x hx
+  | nil =>
+    rfl
+  | cons hd tl ih1 ih2 =>
+    rename_i h
+    simp [List.map]
+    have h1or : check_freevars skip [] hd = true ∨
+                check_freevars skip [] (deBruijn_inc skip tvs hd) = true := by
+      cases h with
+      | inl h => left; simp [List.all_cons] at h; exact h.1
+      | inr h => right; simp [List.all_cons] at h; exact h.1
+    have h2or : tl.all (check_freevars skip []) = true ∨
+                (tl.map (deBruijn_inc skip tvs)).all (check_freevars skip []) = true := by
+      cases h with
+      | inl h =>
+        left
+        simp [List.all_cons] at h
+        simp [List.all_eq_true]
+        intro x hx
+        exact h.2 x hx
+      | inr h =>
+        right
+        simp [List.all_cons] at h
+        simp [List.all_eq_true]
+        intro x hx
+        exact h.2 x hx
+    exact ⟨ih1 h1or, ih2 h2or⟩
 /- HOL4:
 Theorem deBruijn_subst_check_freevars:
  !tvs tvs' t ts n.
