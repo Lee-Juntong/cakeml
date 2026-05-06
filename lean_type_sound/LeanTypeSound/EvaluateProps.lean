@@ -133,7 +133,8 @@ theorem do_app_io_events_mono {ffi : Type}
     {r : store v} {s : ffi_state ffi} {op : op} {vs : List v}
     {r' : store v} {s' : ffi_state ffi} {res : result v v} :
     do_app (r, s) op vs = some ((r', s'), res) →
-    io_events_mono s s' := sorry
+    io_events_mono s s' :=
+  fun h => call_FFI_rel_io_events_mono (do_app_call_FFI_rel h)
 /- HOL4: Theorem is_clock_io_mono_cong
    s = t ==>
    (!s. s.eval_state = t.eval_state /\ s.refs = t.refs /\ s.ffi = t.ffi ==>
@@ -163,7 +164,14 @@ theorem is_clock_io_mono_err {ffi α β : Type}
    (case x of (a, b) => P a b) = (!a b. x = (a, b) ==> P a b)
 -/
 theorem pair_CASE_eq_forall {α β : Type} {P : α → β → Prop} {x : α × β} :
-    (match x with | (a, b) => P a b) = (∀ a b, x = (a, b) → P a b) := sorry
+    (match x with | (a, b) => P a b) = (∀ a b, x = (a, b) → P a b) := by
+  obtain ⟨a, b⟩ := x
+  apply propext
+  constructor
+  · intro h a' b' heq
+    cases heq; exact h
+  · intro h
+    exact h a b rfl
 /- HOL4: Theorem is_clock_io_mono_bind
    is_clock_io_mono f s /\ (!s' r. f s = (s', r)
         ==> is_clock_io_mono (g r) s')
@@ -199,7 +207,9 @@ theorem is_clock_io_mono_check {ffi α β : Type}
    dec_clock (adj_clock 1 0 s) = s
 -/
 theorem dec_inc_clock {ffi : Type} (s : cml_state ffi) :
-    dec_clock (adj_clock 1 0 s) = s := sorry
+    dec_clock (adj_clock 1 0 s) = s := by
+  unfold dec_clock adj_clock
+  simp
 /- HOL4: Theorem do_app_refs_length
    do_app refs_ffi op vs = SOME res ==>
    LENGTH (FST refs_ffi) <= LENGTH (FST (FST res))
@@ -243,7 +253,8 @@ theorem is_clock_io_mono_evaluate {ffi : Type} :
 -/
 theorem is_clock_io_mono_evaluate_decs {ffi : Type}
     (s : cml_state ffi) (e : sem_env) (p : List dec) :
-    is_clock_io_mono (fun s => evaluate_decs s e p) s := sorry
+    is_clock_io_mono (fun s => evaluate_decs s e p) s :=
+  is_clock_io_mono_evaluate.2.2 s e p
 /- HOL4: Theorem is_clock_io_mono_extra
    (!s. is_clock_io_mono f s)
     ==> f s = (s', r) /\ ~ (r = Rerr (Rabort Rtimeout_error))
@@ -262,7 +273,12 @@ theorem is_clock_io_mono_extra {ffi α β : Type}
 -/
 theorem list_result_eq_Rval {α β : Type}
     {r : result α β} {r' : List α} :
-    list_result r = .Rval r' ↔ ∃ v, r' = [v] ∧ r = .Rval v := sorry
+    list_result r = .Rval r' ↔ ∃ v, r' = [v] ∧ r = .Rval v := by
+  cases r with
+  | Rval v =>
+    simp [list_result, eq_comm]
+  | Rerr e =>
+    simp [list_result]
 /- HOL4: Theorem evaluate_length
    (∀(s:'ffi state) e p s' r. evaluate s e p = (s',Rval r) ⇒ LENGTH r = LENGTH p) ∧
    (∀(s:'ffi state) e v p er s' r. evaluate_match s e v p er = (s',Rval r) ⇒ LENGTH r = 1) ∧
@@ -275,7 +291,11 @@ theorem evaluate_length {ffi : Type} :
       (s' : cml_state ffi) (r : List v),
       evaluate_match s env val_ pes err_v = (s', .Rval r) → r.length = 1) ∧
     (∀ (s : cml_state ffi) (env : sem_env) (ds : List dec) (s' : cml_state ffi) (r : sem_env),
-      evaluate_decs s env ds = (s', .Rval r) → True) := sorry
+      evaluate_decs s env ds = (s', .Rval r) → True) := by
+  refine ⟨?_, ?_, ?_⟩
+  · sorry
+  · sorry
+  · intros; trivial
 /- HOL4: Theorem is_clock_io_mono_set_clock
    is_clock_io_mono f s
     ==> f s = (s', r) /\ ~ (r = Rerr (Rabort Rtimeout_error))
