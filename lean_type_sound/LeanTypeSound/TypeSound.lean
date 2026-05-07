@@ -43,33 +43,68 @@ Theorem fst_triple[local]:
   (\ (x,y,z). x) = FST
 -/
 theorem fst_triple {α β γ : Type} :
-    (fun ((x, _, _) : α × β × γ) => x) = (fun (p : α × β × γ) => p.1) := sorry
+    (fun ((x, _, _) : α × β × γ) => x) = (fun (p : α × β × γ) => p.1) := rfl
 /- HOL4:
 Theorem sing_list[local]:
   !l. LENGTH l = 1 ⇔ ?x. l = [x]
 -/
 theorem sing_list {α : Type} :
-    ∀ (l : List α), l.length = 1 ↔ ∃ (x : α), l = [x] := sorry
+    ∀ (l : List α), l.length = 1 ↔ ∃ (x : α), l = [x] := by
+  intro l
+  constructor
+  · intro h
+    cases l with
+    | nil => simp at h
+    | cons x xs =>
+      simp at h
+      cases xs with
+      | nil => exact ⟨x, rfl⟩
+      | cons y ys => simp at h
+  · rintro ⟨x, rfl⟩; rfl
 /- HOL4:
 Theorem EVERY_LIST_REL[local]:
   EVERY (\x. f x y) l = LIST_REL (\x y. f x y) l (REPLICATE (LENGTH l) y)
 -/
 theorem EVERY_LIST_REL_local {α β : Type} :
     ∀ (f : α → β → Prop) (y : β) (l : List α),
-      (∀ (x : α), x ∈ l → f x y) ↔ LIST_REL (fun x y => f x y) l (REPLICATE l.length y) := sorry
+      (∀ (x : α), x ∈ l → f x y) ↔ LIST_REL (fun x y => f x y) l (REPLICATE l.length y) := by
+  intros f y l
+  induction l with
+  | nil =>
+    constructor
+    · intro _; simp [REPLICATE, List.replicate]; exact LIST_REL.nil
+    · intros _ _ h; cases h
+  | cons x xs ih =>
+    simp only [REPLICATE, List.replicate, List.length_cons]
+    constructor
+    · intro hf
+      apply LIST_REL.cons
+      · exact hf x (by simp)
+      · have : (∀ x' ∈ xs, f x' y) := fun x' hx' => hf x' (by simp [hx'])
+        rw [ih] at this
+        exact this
+    · intro hLR
+      cases hLR with
+      | cons _ _ _ _ hxy hrest =>
+        intros x' hx'
+        cases hx' with
+        | head _ => exact hxy
+        | tail _ h' => exact (ih.mpr hrest) x' h'
 /- HOL4:
 Theorem v_unchanged[simp]:
   !tenv x. tenv with v := tenv.v = tenv
 -/
 theorem v_unchanged :
-    ∀ (tenv : type_env), { tenv with v := tenv.v } = tenv := sorry
+    ∀ (tenv : type_env), { tenv with v := tenv.v } = tenv := by
+  intro tenv; cases tenv; rfl
 /- HOL4:
 Theorem check_dup_ctors_thm:
   check_dup_ctors (tvs,tn,condefs) = ALL_DISTINCT (MAP FST condefs)
 -/
 theorem check_dup_ctors_thm :
     ∀ (tvs : List tvarN) (tn : typeN) (condefs : List (conN × List ast_t)),
-      check_dup_ctors (tvs, tn, condefs) = ALL_DISTINCT (condefs.map Prod.fst) := sorry
+      check_dup_ctors (tvs, tn, condefs) = ALL_DISTINCT (condefs.map Prod.fst) := by
+  intros; rfl
 /- HOL4:
 Theorem prim_canonical_values_thm:
   (type_v tvs ctMap tenvS v Tint ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (IntLit n))) ∧
@@ -195,7 +230,11 @@ Theorem same_type_refl[local]:
   !t. same_type t t
 -/
 theorem same_type_refl :
-    ∀ (t : stamp), same_type t t := sorry
+    ∀ (t : stamp), same_type t t := by
+  intro t
+  cases t with
+  | TypeStamp _ _ => simp [same_type]
+  | ExnStamp _ => simp [same_type]
 /- HOL4:
 Theorem eq_same_type[local]:
   (!v1 v2 tvs ctMap cns tenvS t.
@@ -343,7 +382,11 @@ Theorem remove_lambda_prod[local]:
 -/
 theorem remove_lambda_prod {α β γ : Type} :
     ∀ (P : α → β → γ),
-      (fun ((x, y) : α × β) => P x y) = (fun (p : α × β) => P p.1 p.2) := sorry
+      (fun ((x, y) : α × β) => P x y) = (fun (p : α × β) => P p.1 p.2) := by
+  intro P
+  funext p
+  cases p
+  rfl
 /- HOL4:
 Theorem opapp_type_sound:
   !ctMap tenvS vs ts t.
@@ -378,13 +421,34 @@ Theorem store_type_extension_weakS:
 -/
 theorem store_type_extension_weakS :
     ∀ (tenvS1 tenvS2 : tenv_store),
-      store_type_extension tenvS1 tenvS2 → weakS tenvS2 tenvS1 := sorry
+      store_type_extension tenvS1 tenvS2 → weakS tenvS2 tenvS1 := by
+  intros tenvS1 tenvS2 h
+  obtain ⟨tenvS', heq, hcond⟩ := h
+  intro k val_ hk
+  rw [heq]
+  show Finmap.FUNION tenvS' tenvS1 k = some val_
+  unfold Finmap.FUNION
+  cases h' : tenvS' k with
+  | none => simp [h']; exact hk
+  | some v =>
+    -- Either tenvS' has no entry at k (contradicts h') or tenvS1 doesn't (contradicts hk)
+    have hcond_k := hcond k
+    simp [Finmap.FLOOKUP] at hcond_k
+    rcases hcond_k with hl | hl
+    · rw [hl] at h'; contradiction
+    · rw [hl] at hk; contradiction
 /- HOL4:
 Theorem store_type_extension_refl:
   !tenvS. store_type_extension tenvS tenvS
 -/
 theorem store_type_extension_refl :
-    ∀ (tenvS : tenv_store), store_type_extension tenvS tenvS := sorry
+    ∀ (tenvS : tenv_store), store_type_extension tenvS tenvS := by
+  intro tenvS
+  refine ⟨Finmap.FEMPTY, ?_, ?_⟩
+  · funext k
+    show tenvS k = Finmap.FUNION Finmap.FEMPTY tenvS k
+    simp [Finmap.FUNION, Finmap.FEMPTY]
+  · intro l; left; rfl
 /- HOL4:
 Theorem store_type_extension_trans:
   !s1 s2 s3.
@@ -394,7 +458,33 @@ Theorem store_type_extension_trans:
 theorem store_type_extension_trans :
     ∀ (s1 s2 s3 : tenv_store),
       store_type_extension s1 s2 ∧ store_type_extension s2 s3 →
-      store_type_extension s1 s3 := sorry
+      store_type_extension s1 s3 := by
+  intros s1 s2 s3 h
+  obtain ⟨⟨t12, h12, c12⟩, ⟨t23, h23, c23⟩⟩ := h
+  refine ⟨Finmap.FUNION t23 t12, ?_, ?_⟩
+  · funext k
+    rw [h23, h12]
+    unfold Finmap.FUNION
+    cases h23k : t23 k <;> simp [h23k]
+  · intro l
+    have h12l := c12 l
+    have h23l := c23 l
+    -- h12l : FLOOKUP t12 l = none ∨ FLOOKUP s1 l = none
+    -- h23l : FLOOKUP t23 l = none ∨ FLOOKUP s2 l = none
+    -- Goal : FLOOKUP (FUNION t23 t12) l = none ∨ FLOOKUP s1 l = none
+    rcases h12l with hT12 | hS1
+    · rcases h23l with hT23 | hS2
+      · left
+        unfold Finmap.FLOOKUP at hT12 hT23 ⊢
+        unfold Finmap.FUNION
+        rw [hT23, hT12]
+      · -- FLOOKUP s2 l = none. But s2 = FUNION t12 s1, so both must be none
+        have hT12_lookup : Finmap.FLOOKUP t12 l = none := hT12
+        unfold Finmap.FLOOKUP at hS2 hT12_lookup
+        rw [h12] at hS2
+        simp [Finmap.FUNION, hT12_lookup] at hS2
+        right; show Finmap.FLOOKUP s1 l = none; exact hS2
+    · right; exact hS1
 /- HOL4:
 Theorem store_assign_type_sound:
   !ctMap tenvS store sv st l.
@@ -687,7 +777,9 @@ Theorem EVERY_LIST_REL:
 theorem EVERY_LIST_REL_thm :
     ∀ (n : Nat) (ctMap_ : ctMap) (tenvS : tenv_store) (t : sem_t) (vs : List v),
       (∀ (v_ : v), v_ ∈ vs → type_v n ctMap_ tenvS v_ t) ↔
-      LIST_REL (type_v n ctMap_ tenvS) vs (REPLICATE vs.length t) := sorry
+      LIST_REL (type_v n ctMap_ tenvS) vs (REPLICATE vs.length t) := by
+  intros n ctMap_ tenvS t vs
+  exact EVERY_LIST_REL_local _ _ _
 /- HOL4:
 Theorem exp_type_sound:
   (!(s:'ffi semanticPrimitives$state) env es r s' tenv tenvE ts tvs tenvS.

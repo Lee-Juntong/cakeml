@@ -314,19 +314,30 @@ End
 def every_exp (p : exp → Bool) : exp → Bool
   | .Raise e => p (.Raise e) && every_exp p e
   | .Handle e pes =>
-    p (.Handle e pes) && every_exp p e && pes.all fun (_, e') => every_exp p e'
+    p (.Handle e pes) && every_exp p e &&
+      pes.attach.all fun ⟨⟨_, e'⟩, _⟩ => every_exp p e'
   | .Lit l => p (.Lit l)
-  | .Con cn es => p (.Con cn es) && es.all (every_exp p)
+  | .Con cn es => p (.Con cn es) && es.attach.all fun ⟨e', _⟩ => every_exp p e'
   | .Var v => p (.Var v)
   | .Fun x e => p (.Fun x e) && every_exp p e
-  | .App o es => p (.App o es) && es.all (every_exp p)
+  | .App o es => p (.App o es) && es.attach.all fun ⟨e', _⟩ => every_exp p e'
   | .Log l e1 e2 => p (.Log l e1 e2) && every_exp p e1 && every_exp p e2
   | .If e1 e2 e3 => p (.If e1 e2 e3) && every_exp p e1 && every_exp p e2 && every_exp p e3
   | .Mat e pes =>
-    p (.Mat e pes) && every_exp p e && pes.all fun (_, e') => every_exp p e'
+    p (.Mat e pes) && every_exp p e &&
+      pes.attach.all fun ⟨⟨_, e'⟩, _⟩ => every_exp p e'
   | .Let x e1 e2 => p (.Let x e1 e2) && every_exp p e1 && every_exp p e2
   | .Tannot e a => p (.Tannot e a) && every_exp p e
   | .Lannot e a => p (.Lannot e a) && every_exp p e
   | .Letrec funs e =>
-    p (.Letrec funs e) && every_exp p e && funs.all fun (_, _, e') => every_exp p e'
-  decreasing_by all_goals sorry
+    p (.Letrec funs e) && every_exp p e &&
+      funs.attach.all fun ⟨⟨_, _, e'⟩, _⟩ => every_exp p e'
+  termination_by e => sizeOf e
+  decreasing_by
+    all_goals first
+      | decreasing_trivial
+      | (simp_wf
+         rename_i h
+         have := List.sizeOf_lt_of_mem h
+         simp at this
+         omega)

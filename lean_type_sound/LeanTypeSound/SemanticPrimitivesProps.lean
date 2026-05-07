@@ -177,22 +177,29 @@ def shift_lookup_64 : shift → word64 → Nat → word64
    (env:'v sem_env) with v := env.v = env
 -/
 theorem with_same_v (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by
+  cases env; rfl
 /- HOL4: Theorem unchanged_env[simp]:
    !(env : 'a sem_env). <| v := env.v; c := env.c |> = env
 -/
 theorem unchanged_env (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by
+  cases env; rfl
 /- HOL4: Theorem with_same_clock:
    (st:'ffi state) with clock := st.clock = st
 -/
 theorem with_same_clock {ffi : Type} (st : cml_state ffi) :
-    { st with clock := st.clock } = st := sorry
+    { st with clock := st.clock } = st := by
+  cases st; rfl
 /- HOL4: Theorem Boolv_11[simp]:
    Boolv b1 = Boolv b2 <=> (b1 = b2)
 -/
 theorem Boolv_11 (b1 b2 : Bool) :
-    Boolv b1 = Boolv b2 ↔ b1 = b2 := sorry
+    Boolv b1 = Boolv b2 ↔ b1 = b2 := by
+  constructor
+  · intro h
+    cases b1 <;> cases b2 <;> simp_all [Boolv]
+  · rintro rfl; rfl
 /- HOL4: Theorem extend_dec_env_assoc[simp]:
    !env1 env2 env3.
     extend_dec_env env1 (extend_dec_env env2 env3)
@@ -200,7 +207,17 @@ theorem Boolv_11 (b1 b2 : Bool) :
 -/
 theorem extend_dec_env_assoc (env1 env2 env3 : sem_env) :
     extend_dec_env env1 (extend_dec_env env2 env3) =
-    extend_dec_env (extend_dec_env env1 env2) env3 := sorry
+    extend_dec_env (extend_dec_env env1 env2) env3 := by
+  cases env1; cases env2; cases env3
+  simp [extend_dec_env, sem_env.v_, sem_env.c, nsAppend]
+  cases ‹«namespace» modN varN v›; rename_i v1 m1
+  cases ‹«namespace» modN varN v›; rename_i v2 m2
+  cases ‹«namespace» modN varN v›; rename_i v3 m3
+  simp [nsAppend, List.append_assoc]
+  cases ‹«namespace» modN conN (Nat × stamp)›
+  cases ‹«namespace» modN conN (Nat × stamp)›
+  cases ‹«namespace» modN conN (Nat × stamp)›
+  simp [nsAppend, List.append_assoc]
 /- HOL4: Theorem pat_bindings_accum:
    (!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) /\
    (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)
@@ -218,7 +235,8 @@ theorem do_app_cases {ffi : Type} :
     ∀ (s : List (store_v v) ) (t : ffi_state ffi) (op_ : op) (vs : List v)
       (st' : List (store_v v) × ffi_state ffi) (r : result v v),
     do_app (s, t) op_ vs = some (st', r) ↔
-    do_app (s, t) op_ vs = some (st', r) := sorry
+    do_app (s, t) op_ vs = some (st', r) := by
+  intros; rfl
 /- HOL4: Theorem build_rec_env_merge:
    !funs funs' env env'.
     build_rec_env funs env env' =
@@ -237,7 +255,17 @@ theorem do_con_check_build_conv
     (tenvC : env_ctor) (cn : Option (cml_id modN conN))
     (vs : List v) (l : Nat) :
     do_con_check tenvC cn l = true →
-    ∃ val, build_conv tenvC cn vs = some val := sorry
+    ∃ val, build_conv tenvC cn vs = some val := by
+  intro h
+  unfold build_conv
+  cases cn with
+  | none => exact ⟨_, rfl⟩
+  | some n =>
+    unfold do_con_check at h
+    simp at h
+    cases hL : nsLookup tenvC n with
+    | none => rw [hL] at h; simp at h
+    | some p => simp [hL]
 /- HOL4: Theorem FV_pes_MAP:
    FV_pes pes = BIGUNION (IMAGE (\(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))
 -/
@@ -256,7 +284,10 @@ theorem FV_defs_MAP (ls : List (varN × varN × exp)) :
    !xs. concrete_v_list xs = EVERY concrete_v xs
 -/
 theorem concrete_v_list_thm (xs : List v) :
-    concrete_v_list xs = xs.all concrete_v := sorry
+    concrete_v_list xs = xs.all concrete_v := by
+  induction xs with
+  | nil => simp [concrete_v_list]
+  | cons x xs ih => simp [concrete_v_list, ih]
 /- HOL4: Theorem prim_type_cases:
    !ty. ty = BoolT \/ ty = IntT \/ ty = CharT \/ ty = StrT \/
         ty = WordT W8 \/ ty = WordT W64 \/ ty = Float64T
@@ -268,4 +299,14 @@ theorem prim_type_cases (ty : prim_type) :
     ty = .StrT ∨
     ty = .WordT .W8 ∨
     ty = .WordT .W64 ∨
-    ty = .Float64T := sorry
+    ty = .Float64T := by
+  cases ty with
+  | BoolT => exact Or.inl rfl
+  | IntT => exact Or.inr (Or.inl rfl)
+  | CharT => exact Or.inr (Or.inr (Or.inl rfl))
+  | StrT => exact Or.inr (Or.inr (Or.inr (Or.inl rfl)))
+  | WordT w =>
+    cases w with
+    | W8 => exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl rfl))))
+    | W64 => exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl rfl)))))
+  | Float64T => exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr rfl)))))

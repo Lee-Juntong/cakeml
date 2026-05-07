@@ -71,7 +71,9 @@ Theorem weakS_refl:
    !tenvS. weakS tenvS tenvS
 -/
 theorem weakS_refl :
-    ∀ (tenvS : tenv_store), weakS tenvS tenvS := sorry
+    ∀ (tenvS : tenv_store), weakS tenvS tenvS := by
+  intro tenvS k val_ h
+  exact h
 /- HOL4:
 Theorem weak_tenvE_freevars[local]:
   !tenv tenv' tvs t.
@@ -92,7 +94,16 @@ Theorem weak_tenvE_bind[local]:
 theorem weak_tenvE_bind :
     ∀ (tenvE tenvE' : tenv_val_exp) (n : mlstring) (tvs : Nat) (t : sem_t),
       weak_tenvE tenvE' tenvE →
-      weak_tenvE (.Bind_name n tvs t tenvE') (.Bind_name n tvs t tenvE) := sorry
+      weak_tenvE (.Bind_name n tvs t tenvE') (.Bind_name n tvs t tenvE) := by
+  intros tenvE tenvE' n tvs t hw
+  obtain ⟨hgte, hlook⟩ := hw
+  refine ⟨?_, ?_⟩
+  · simp [num_tvs]; exact hgte
+  · intros n_ inc tvs' t'
+    simp [tveLookup]
+    split
+    · simp
+    · exact hlook _ _ _ _
 /- HOL4:
 Theorem weak_tenvE_opt_bind[local]:
   !tenv tenv' n tvs t.
@@ -102,7 +113,11 @@ Theorem weak_tenvE_opt_bind[local]:
 theorem weak_tenvE_opt_bind :
     ∀ (tenvE tenvE' : tenv_val_exp) (n : Option mlstring) (tvs : Nat) (t : sem_t),
       weak_tenvE tenvE' tenvE →
-      weak_tenvE (opt_bind_name n tvs t tenvE') (opt_bind_name n tvs t tenvE) := sorry
+      weak_tenvE (opt_bind_name n tvs t tenvE') (opt_bind_name n tvs t tenvE) := by
+  intros tenvE tenvE' n tvs t hw
+  cases n with
+  | none => exact hw
+  | some n_ => exact weak_tenvE_bind tenvE tenvE' n_ tvs t hw
 /- HOL4:
 Theorem weak_tenvE_bind_tvar[local]:
   !tenv tenv' tvs.
@@ -112,7 +127,18 @@ Theorem weak_tenvE_bind_tvar[local]:
 theorem weak_tenvE_bind_tvar :
     ∀ (tenvE tenvE' : tenv_val_exp) (tvs : Nat),
       weak_tenvE tenvE' tenvE →
-      weak_tenvE (bind_tvar tvs tenvE') (bind_tvar tvs tenvE) := sorry
+      weak_tenvE (bind_tvar tvs tenvE') (bind_tvar tvs tenvE) := by
+  intros tenvE tenvE' tvs hw
+  obtain ⟨hgte, hlook⟩ := hw
+  unfold bind_tvar
+  by_cases h : tvs == 0
+  · simp [h]; exact ⟨hgte, hlook⟩
+  · simp [h]
+    refine ⟨?_, ?_⟩
+    · simp [num_tvs]; omega
+    · intros n_ inc tvs' t'
+      simp [tveLookup]
+      exact hlook _ _ _ _
 /- HOL4:
 Theorem weak_tenvE_bind_tvar2[local]:
   !tenv tenv' n tvs t.
@@ -134,7 +160,15 @@ Theorem weak_tenvE_bind_var_list[local]:
 theorem weak_tenvE_bind_var_list :
     ∀ (bindings : List (mlstring × sem_t)) (tenvE tenvE' : tenv_val_exp) (tvs : Nat),
       weak_tenvE tenvE' tenvE →
-      weak_tenvE (bind_var_list tvs bindings tenvE') (bind_var_list tvs bindings tenvE) := sorry
+      weak_tenvE (bind_var_list tvs bindings tenvE') (bind_var_list tvs bindings tenvE) := by
+  intro bindings
+  induction bindings with
+  | nil => intros tenvE tenvE' tvs hw; exact hw
+  | cons p bindings ih =>
+    intros tenvE tenvE' tvs hw
+    obtain ⟨n_, t_⟩ := p
+    simp [bind_var_list]
+    exact weak_tenvE_bind _ _ n_ tvs t_ (ih tenvE tenvE' tvs hw)
 /- HOL4:
 Theorem eLookupC_weak[local]:
   ∀cn tenv tenv' tvs ts tn.
@@ -147,7 +181,17 @@ theorem eLookupC_weak :
     ∀ (cn : cml_id modN conN) (tenv tenv' : type_env)
       (tvs : List tvarN) (ts : List sem_t) (tn : type_ident),
       weak_tenv tenv' tenv ∧ nsLookup tenv.c cn = some (tvs, ts, tn) →
-      nsLookup tenv'.c cn = some (tvs, ts, tn) := sorry
+      nsLookup tenv'.c cn = some (tvs, ts, tn) := by
+  intros cn tenv tenv' tvs ts tn h
+  obtain ⟨hw, hl⟩ := h
+  unfold weak_tenv at hw
+  obtain ⟨_, hsubC⟩ := hw
+  obtain ⟨hsubCV, _⟩ := hsubC
+  obtain ⟨v', hl', heq⟩ := hsubCV cn (tvs, ts, tn) hl
+  -- heq : (fun _ x y => x = y) cn (tvs, ts, tn) v'
+  --     = (tvs, ts, tn) = v'
+  rw [← heq] at hl'
+  exact hl'
 /- HOL4:
 Theorem eLookupV_weak[local]:
   ∀n tenv tenv' tvs t.
@@ -160,7 +204,17 @@ theorem eLookupV_weak :
     ∀ (n : cml_id modN varN) (tenv tenv' : type_env) (tvs : Nat) (t : sem_t),
       weak_tenv tenv' tenv ∧ nsLookup tenv.v n = some (tvs, t) →
       ∃ (tvs' : Nat) (t' : sem_t),
-        nsLookup tenv'.v n = some (tvs', t') ∧ tscheme_inst (tvs, t) (tvs', t') := sorry
+        nsLookup tenv'.v n = some (tvs', t') ∧ tscheme_inst (tvs, t) (tvs', t') := by
+  intros n tenv tenv' tvs t h
+  obtain ⟨hw, hl⟩ := h
+  unfold weak_tenv at hw
+  obtain ⟨hsubV, _⟩ := hw
+  obtain ⟨hsubVV, _⟩ := hsubV
+  obtain ⟨v', hl', heq⟩ := hsubVV n (tvs, t) hl
+  obtain ⟨tvs', t'⟩ := v'
+  refine ⟨tvs', t', hl', ?_⟩
+  unfold tscheme_inst2 at heq
+  exact heq
 /- HOL4:
 Theorem type_p_weakening:
  (!tvs tenv p t bindings. type_p tvs tenv p t bindings ⇒
@@ -229,7 +283,8 @@ Theorem gt_0[local]:
   !x:num.x ≥ 0
 -/
 theorem gt_0 :
-    ∀ (x : Nat), x ≥ 0 := sorry
+    ∀ (x : Nat), x ≥ 0 := by
+  intro x; exact Nat.zero_le x
 /- HOL4:
 Theorem weak_ctMap_lookup[local]:
   ∀ctMap ctMap' tvs ts stamp.
@@ -241,19 +296,29 @@ Theorem weak_ctMap_lookup[local]:
 theorem weak_ctMap_lookup :
     ∀ (cm cm' : ctMap) (tvs : List tvarN) (ts : List sem_t × type_ident) (stmp : stamp),
       weakCT cm' cm ∧ Finmap.FLOOKUP cm stmp = some (tvs, ts) →
-      Finmap.FLOOKUP cm' stmp = some (tvs, ts) := sorry
+      Finmap.FLOOKUP cm' stmp = some (tvs, ts) := by
+  intros cm cm' tvs ts stmp h
+  obtain ⟨hw, hlookup⟩ := h
+  unfold weakCT at hw
+  exact hw stmp _ hlookup
 /- HOL4:
 Theorem weakCT_refl:
  !ctMap. weakCT ctMap ctMap
 -/
 theorem weakCT_refl :
-    ∀ (cm : ctMap), weakCT cm cm := sorry
+    ∀ (cm : ctMap), weakCT cm cm := by
+  intros cm k val_ h
+  exact h
 /- HOL4:
 Theorem weakCT_trans:
  weakCT C1 C2 ∧ weakCT C2 C3 ⇒ weakCT C1 C3
 -/
 theorem weakCT_trans :
-    ∀ (C1 C2 C3 : ctMap), weakCT C1 C2 ∧ weakCT C2 C3 → weakCT C1 C3 := sorry
+    ∀ (C1 C2 C3 : ctMap), weakCT C1 C2 ∧ weakCT C2 C3 → weakCT C1 C3 := by
+  intros C1 C2 C3 hh
+  obtain ⟨h12, h23⟩ := hh
+  intros k val_ h
+  exact h12 k val_ (h23 k val_ h)
 /- HOL4:
 Theorem disjoint_env_weakCT:
  !ctMap ctMap'.
@@ -263,7 +328,24 @@ Theorem disjoint_env_weakCT:
 theorem disjoint_env_weakCT :
     ∀ (cm cm' : ctMap),
       Set.Disjoint (Finmap.FDOM cm') (Finmap.FDOM cm) →
-      weakCT (Finmap.FUNION cm' cm) cm := sorry
+      weakCT (Finmap.FUNION cm' cm) cm := by
+  intros cm cm' h
+  intro k val_ hk
+  show Finmap.FUNION cm' cm k = some val_
+  unfold Finmap.FUNION
+  cases h' : cm' k with
+  | none => simp [h']; exact hk
+  | some v' =>
+    exfalso
+    have h1 : k ∈ Finmap.FDOM cm' := by
+      show (cm' k).isSome = true
+      rw [h']; rfl
+    have h2 : k ∈ Finmap.FDOM cm := by
+      show (cm k).isSome = true
+      have : Finmap.FLOOKUP cm k = some val_ := hk
+      unfold Finmap.FLOOKUP at this
+      rw [this]; rfl
+    exact h k ⟨h1, h2⟩
 /- HOL4:
 Theorem type_tenv_ctor_weakening:
  !ctMap tenvC envC ctMap'.

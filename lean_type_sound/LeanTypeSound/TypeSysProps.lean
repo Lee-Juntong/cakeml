@@ -111,7 +111,8 @@ Theorem unchanged_tenv[simp]:
 -/
 theorem unchanged_tenv :
     ∀ (tenv : type_env),
-      { v := tenv.v, c := tenv.c, t := tenv.t : type_env} = tenv := sorry
+      { v := tenv.v, c := tenv.c, t := tenv.t : type_env} = tenv := by
+  intro tenv; cases tenv; rfl
 /- HOL4:
 Theorem extend_dec_tenv_assoc[simp]:
    !tenv1 tenv2 tenv3.
@@ -122,40 +123,79 @@ Theorem extend_dec_tenv_assoc[simp]:
 theorem extend_dec_tenv_assoc_thm :
     ∀ (tenv1 tenv2 tenv3 : type_env),
       extend_dec_tenv tenv1 (extend_dec_tenv tenv2 tenv3) =
-      extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3 := sorry
+      extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3 := by
+  intros tenv1 tenv2 tenv3
+  rcases tenv1 with ⟨v1, c1, t1⟩
+  rcases tenv2 with ⟨v2, c2, t2⟩
+  rcases tenv3 with ⟨v3, c3, t3⟩
+  cases v1; cases v2; cases v3
+  cases c1; cases c2; cases c3
+  cases t1; cases t2; cases t3
+  simp [extend_dec_tenv, nsAppend, List.append_assoc]
 /- HOL4:
 Theorem tenv_val_ok_nsEmpty[simp]:
    tenv_val_ok nsEmpty
 -/
 theorem tenv_val_ok_nsEmpty :
-    tenv_val_ok nsEmpty := sorry
+    tenv_val_ok nsEmpty := nsAll_nsEmpty _
 /- HOL4:
 Theorem tenv_ctor_ok_nsEmpty[simp]:
    tenv_ctor_ok nsEmpty
 -/
 theorem tenv_ctor_ok_nsEmpty :
-    tenv_ctor_ok nsEmpty := sorry
+    tenv_ctor_ok nsEmpty := nsAll_nsEmpty _
 /- HOL4:
 Theorem tenv_abbrev_ok_nsEmpty[simp]:
    tenv_abbrev_ok nsEmpty
 -/
 theorem tenv_abbrev_ok_nsEmpty :
-    tenv_abbrev_ok nsEmpty := sorry
+    tenv_abbrev_ok nsEmpty := nsAll_nsEmpty _
 /- HOL4:
 Theorem tenv_ok_empty[simp]:
    tenv_ok <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>
 -/
 theorem tenv_ok_empty :
-    tenv_ok { v := nsEmpty, c := nsEmpty, t := nsEmpty } := sorry
+    tenv_ok { v := nsEmpty, c := nsEmpty, t := nsEmpty } :=
+  ⟨tenv_val_ok_nsEmpty, tenv_ctor_ok_nsEmpty, tenv_abbrev_ok_nsEmpty⟩
 /- HOL4:
 Theorem check_freevars_add:
  (!tvs tvs' t. check_freevars tvs tvs' t ⇒
   !tvs''. tvs'' ≥ tvs ⇒ check_freevars tvs'' tvs' t)
 -/
+private theorem List.attach_all_eq {α : Type} (l : List α) (p : α → Bool) :
+    (l.attach.all (fun ⟨x, _⟩ => p x)) = l.all p := by
+  induction l with
+  | nil => rfl
+  | cons x xs ih => simp [List.attach_cons, List.all_cons, ih]
 theorem check_freevars_add :
     ∀ (tvs : Nat) (tvs' : List tvarN) (t : sem_t),
       check_freevars tvs tvs' t →
-      ∀ (tvs'' : Nat), tvs'' ≥ tvs → check_freevars tvs'' tvs' t := sorry
+      ∀ (tvs'' : Nat), tvs'' ≥ tvs → check_freevars tvs'' tvs' t := by
+  intros tvs tvs' t
+  induction t using sem_t.rec
+    (motive_2 := fun (l : List sem_t) =>
+      (∀ x ∈ l, check_freevars tvs tvs' x = true) →
+      ∀ tvs'' ≥ tvs, ∀ x ∈ l, check_freevars tvs'' tvs' x = true) with
+  | Tvar tv =>
+    intros h tvs'' _
+    simp [check_freevars] at h ⊢
+    exact h
+  | Tvar_db m =>
+    intros h tvs'' hge
+    simp [check_freevars] at h ⊢
+    omega
+  | Tapp ts tn ih =>
+    intros h tvs'' hge
+    simp [check_freevars, List.attach_all_eq, List.all_eq_true] at h ⊢
+    exact ih h tvs'' hge
+  | nil =>
+    contradiction
+  | cons t ts ih1 ih2 =>
+    rename_i hall _ hge x hx
+    cases hx with
+    | head _ => exact ih1 (hall t (by simp)) _ hge
+    | tail _ hx =>
+      exact ih2 (fun y hy => hall y (by simp [hy])) _ hge x hx
 /- HOL4:
 Theorem check_freevars_subst_single:
  !dbmax tvs t tvs' ts.
@@ -176,9 +216,22 @@ Theorem deBruijn_inc0:
  (!t sk. deBruijn_inc sk 0 t = t) ∧
  (!ts sk. MAP (deBruijn_inc sk 0) ts = ts)
 -/
+private theorem deBruijn_inc0_aux (t : sem_t) (sk : Nat) : deBruijn_inc sk 0 t = t := by
+  induction t using sem_t.rec
+    (motive_2 := fun (l : List sem_t) => l.map (deBruijn_inc sk 0) = l) with
+  | Tvar _ => simp [deBruijn_inc]
+  | Tvar_db m => simp [deBruijn_inc]
+  | Tapp ts tn ih => simp [deBruijn_inc, ih]
+  | nil => rfl
+  | cons t ts ih1 ih2 => simp [List.map, ih1, ih2]
 theorem deBruijn_inc0 :
     (∀ (t : sem_t) (sk : Nat), deBruijn_inc sk 0 t = t) ∧
-    (∀ (ts : List sem_t) (sk : Nat), ts.map (deBruijn_inc sk 0) = ts) := sorry
+    (∀ (ts : List sem_t) (sk : Nat), ts.map (deBruijn_inc sk 0) = ts) := by
+  refine ⟨fun t sk => deBruijn_inc0_aux t sk, ?_⟩
+  intros ts sk
+  induction ts with
+  | nil => rfl
+  | cons t ts ih => simp [List.map, deBruijn_inc0_aux, ih]
 /- HOL4:
 Theorem deBruijn_inc_deBruijn_inc:
  !sk i2 t i1.
@@ -186,7 +239,23 @@ Theorem deBruijn_inc_deBruijn_inc:
 -/
 theorem deBruijn_inc_deBruijn_inc :
     ∀ (sk i2 : Nat) (t : sem_t) (i1 : Nat),
-      deBruijn_inc sk i1 (deBruijn_inc sk i2 t) = deBruijn_inc sk (i1 + i2) t := sorry
+      deBruijn_inc sk i1 (deBruijn_inc sk i2 t) = deBruijn_inc sk (i1 + i2) t := by
+  intros sk i2 t i1
+  induction t using sem_t.rec
+    (motive_2 := fun (l : List sem_t) =>
+      (l.map (deBruijn_inc sk i2)).map (deBruijn_inc sk i1) = l.map (deBruijn_inc sk (i1 + i2))) with
+  | Tvar _ => simp [deBruijn_inc]
+  | Tvar_db m =>
+    simp [deBruijn_inc]
+    by_cases h : m < sk
+    · simp [h, deBruijn_inc]
+    · simp [h, deBruijn_inc]
+      have : ¬ (m + i2 < sk) := by omega
+      simp [this]
+      omega
+  | Tapp ts tn ih => simp [deBruijn_inc, ih]
+  | nil => rfl
+  | cons t ts ih1 ih2 => simp [List.map, ih1, ih2]
 /- HOL4: [local]
 Theorem deBuijn_inc_lem1:
   !sk i2 t i1.
@@ -233,7 +302,39 @@ Theorem check_freevars_deBruijn_inc:
 theorem check_freevars_deBruijn_inc :
     ∀ (tvs : Nat) (tvs' : List tvarN) (t : sem_t),
       check_freevars tvs tvs' t →
-      ∀ (n n' : Nat), check_freevars (n + tvs) tvs' (deBruijn_inc n' n t) := sorry
+      ∀ (n n' : Nat), check_freevars (n + tvs) tvs' (deBruijn_inc n' n t) := by
+  intros tvs tvs' t
+  induction t using sem_t.rec
+    (motive_2 := fun (l : List sem_t) =>
+      (∀ x ∈ l, check_freevars tvs tvs' x = true) →
+      ∀ n n' : Nat, ∀ x ∈ l, check_freevars (n + tvs) tvs' (deBruijn_inc n' n x) = true) with
+  | Tvar tv =>
+    intros h _ _
+    simp [check_freevars, deBruijn_inc] at h ⊢
+    exact h
+  | Tvar_db m =>
+    intros h n n'
+    simp [check_freevars, deBruijn_inc] at h ⊢
+    split <;> simp [check_freevars] <;> omega
+  | Tapp ts tn ih =>
+    intros h n n'
+    have h' : ∀ y ∈ ts, check_freevars tvs tvs' y = true := by
+      simp [check_freevars, List.attach_all_eq, List.all_eq_true] at h
+      exact h
+    have ih' := ih h' n n'
+    simp only [deBruijn_inc, check_freevars]
+    rw [List.attach_all_eq, List.all_eq_true]
+    intros x hx
+    obtain ⟨y, hy, hyeq⟩ := List.exists_of_mem_map hx
+    rw [← hyeq]
+    exact ih' y hy
+  | nil => contradiction
+  | cons t ts ih1 ih2 =>
+    rename_i hall n n' x hx
+    cases hx with
+    | head _ => exact ih1 (hall t (by simp)) n n'
+    | tail _ hx =>
+      exact ih2 (fun y hy => hall y (by simp [hy])) n n' x hx
 /- HOL4:
 Theorem nil_deBruijn_inc:
  ∀skip tvs t.
@@ -244,7 +345,57 @@ Theorem nil_deBruijn_inc:
 theorem nil_deBruijn_inc :
     ∀ (skip tvs : Nat) (t : sem_t),
       (check_freevars skip [] t ∨ check_freevars skip [] (deBruijn_inc skip tvs t)) →
-      deBruijn_inc skip tvs t = t := sorry
+      deBruijn_inc skip tvs t = t := by
+  intros skip tvs t
+  induction t using sem_t.rec
+    (motive_2 := fun (l : List sem_t) =>
+      ((∀ x ∈ l, check_freevars skip [] x = true) ∨
+       (∀ x ∈ l.map (deBruijn_inc skip tvs), check_freevars skip [] x = true)) →
+      l.map (deBruijn_inc skip tvs) = l) with
+  | Tvar tv => intro _; simp [deBruijn_inc]
+  | Tvar_db m =>
+    intro h
+    simp [check_freevars, deBruijn_inc] at h
+    rcases h with h | h
+    · simp [deBruijn_inc, h]
+    · split at h
+      · rename_i hh; simp [deBruijn_inc, hh]
+      · simp [check_freevars] at h
+        omega
+  | Tapp ts tn ih =>
+    intro h
+    have h' : (∀ y ∈ ts, check_freevars skip [] y = true) ∨
+              (∀ y ∈ ts.map (deBruijn_inc skip tvs), check_freevars skip [] y = true) := by
+      rcases h with h | h
+      · left
+        simp [check_freevars, List.attach_all_eq, List.all_eq_true] at h
+        exact h
+      · right
+        simp only [deBruijn_inc, check_freevars] at h
+        rw [List.attach_all_eq, List.all_eq_true] at h
+        exact h
+    have ih' := ih h'
+    simp only [deBruijn_inc, ih']
+  | nil =>
+    rfl
+  | cons t ts ih1 ih2 =>
+    rename_i h
+    simp only [List.map_cons, List.cons.injEq]
+    refine ⟨?_, ?_⟩
+    · apply ih1
+      rcases h with h | h
+      · left; exact h t (by simp)
+      · right; have := h (deBruijn_inc skip tvs t) (by simp); exact this
+    · apply ih2
+      rcases h with h | h
+      · left; intros y hy; exact h y (by simp [hy])
+      · right
+        intros y hy
+        obtain ⟨a, ha, haeq⟩ := List.exists_of_mem_map hy
+        have hy' : y ∈ (t :: ts).map (deBruijn_inc skip tvs) := by
+          simp; right
+          exact ⟨a, ha, haeq⟩
+        exact h y hy'
 /- HOL4:
 Theorem deBruijn_subst_check_freevars:
  !tvs tvs' t ts n.
@@ -504,7 +655,10 @@ theorem tenv_abbrev_ok_lookup :
     ∀ (tenvT : tenv_abbrev) (tn : cml_id modN typeN) (tvs : List tvarN) (t : sem_t),
       tenv_abbrev_ok tenvT ∧
       nsLookup tenvT tn = some (tvs, t) →
-      check_freevars 0 tvs t := sorry
+      check_freevars 0 tvs t := by
+  intros tenvT tn tvs t h
+  obtain ⟨hOK, hL⟩ := h
+  exact hOK tn (tvs, t) hL
 /- HOL4:
 Theorem check_freevars_type_name_subst:
  !tvs t dbmax tenvT.
@@ -530,7 +684,10 @@ Theorem tenv_ctor_ok_merge[simp]:
 theorem tenv_ctor_ok_merge :
     ∀ (tenvC1 tenvC2 : tenv_ctor),
       tenv_ctor_ok tenvC1 ∧ tenv_ctor_ok tenvC2 →
-      tenv_ctor_ok (nsAppend tenvC1 tenvC2) := sorry
+      tenv_ctor_ok (nsAppend tenvC1 tenvC2) := by
+  intros tenvC1 tenvC2 h
+  obtain ⟨h1, h2⟩ := h
+  exact nsAll_nsAppend _ _ _ ⟨h1, h2⟩
 /- HOL4:
 Theorem tenv_ctor_ok_lookup:
    !tenvC cn tvs ts tn.
@@ -541,7 +698,10 @@ Theorem tenv_ctor_ok_lookup:
 theorem tenv_ctor_ok_lookup :
     ∀ (tenvC : tenv_ctor) (cn : cml_id modN conN) (tvs : List tvarN) (ts : List sem_t) (tn : type_ident),
       tenv_ctor_ok tenvC ∧ nsLookup tenvC cn = some (tvs, ts, tn) →
-      EVERY (check_freevars 0 tvs) ts := sorry
+      EVERY (check_freevars 0 tvs) ts := by
+  intros tenvC cn tvs ts tn h
+  obtain ⟨hOK, hL⟩ := h
+  exact hOK cn (tvs, ts, tn) hL
 /- HOL4:
 Theorem bind_tvar_rewrites[simp]:
    (!tvs e1 e2. db_merge (bind_tvar tvs e1) e2 = bind_tvar tvs (db_merge e1 e2)) ∧
@@ -571,13 +731,43 @@ theorem bind_tvar_rewrites :
       tenv_val_exp_ok (bind_tvar tvs e) ↔ tenv_val_exp_ok e) ∧
     (∀ (targs : List sem_t) (tvs : Nat) (e : tenv_val_exp),
       deBruijn_subst_tenvE targs (bind_tvar tvs e) =
-      bind_tvar tvs (deBruijn_subst_tenvE targs e)) := sorry
+      bind_tvar tvs (deBruijn_subst_tenvE targs e)) := by
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · intros tvs e1 e2
+    unfold bind_tvar
+    by_cases h : tvs == 0
+    · simp [h]
+    · simp [h, db_merge]
+  · intros tvs e
+    unfold bind_tvar
+    by_cases h : tvs == 0
+    · simp at h; subst h; simp [num_tvs]
+    · simp [h, num_tvs]
+  · intros tvs e; rfl
+  · intros _ _ _ _; rfl
+  · rfl
+  · intros n inc tvs e
+    unfold bind_tvar
+    by_cases h : tvs == 0
+    · simp at h; subst h; simp [tveLookup]
+    · simp [h, tveLookup]
+  · intros tvs e
+    unfold bind_tvar
+    by_cases h : tvs == 0
+    · simp [h]
+    · simp [h, tenv_val_exp_ok]
+  · intros targs tvs e
+    unfold bind_tvar
+    by_cases h : tvs == 0
+    · simp [h]
+    · simp [h, deBruijn_subst_tenvE]
 /- HOL4:
 Theorem bind_tvar0[simp]:
  !x. bind_tvar 0 x = x
 -/
 theorem bind_tvar0 :
-    ∀ (x : tenv_val_exp), bind_tvar 0 x = x := sorry
+    ∀ (x : tenv_val_exp), bind_tvar 0 x = x := by
+  intro x; rfl
 /- HOL4:
 Theorem tveLookup_subst_none:
  !n inc e.
@@ -587,7 +777,18 @@ Theorem tveLookup_subst_none:
 theorem tveLookup_subst_none :
     ∀ (targs : List sem_t) (n : mlstring) (inc : Nat) (e : tenv_val_exp),
       tveLookup n inc (deBruijn_subst_tenvE targs e) = none ↔
-      tveLookup n inc e = none := sorry
+      tveLookup n inc e = none := by
+  intros targs n inc e
+  induction e generalizing inc with
+  | Empty => simp [deBruijn_subst_tenvE, tveLookup]
+  | Bind_tvar tvs e ih =>
+    simp [deBruijn_subst_tenvE, tveLookup]
+    exact ih (inc + tvs)
+  | Bind_name n' tvs t e ih =>
+    simp [deBruijn_subst_tenvE, tveLookup]
+    by_cases h : n' == n
+    · simp [h]
+    · simp [h]; exact ih inc
 /- HOL4:
 Theorem tveLookup_db_merge_none:
  !n inc e1 e2.
@@ -598,7 +799,21 @@ Theorem tveLookup_db_merge_none:
 theorem tveLookup_db_merge_none :
     ∀ (n : mlstring) (inc : Nat) (e1 e2 : tenv_val_exp),
       tveLookup n inc (db_merge e1 e2) = none ↔
-      tveLookup n inc e1 = none ∧ tveLookup n (num_tvs e1 + inc) e2 = none := sorry
+      tveLookup n inc e1 = none ∧ tveLookup n (num_tvs e1 + inc) e2 = none := by
+  intros n inc e1 e2
+  induction e1 generalizing inc with
+  | Empty => simp [db_merge, tveLookup, num_tvs]
+  | Bind_tvar tvs e ih =>
+    simp [db_merge, tveLookup, num_tvs]
+    have h1 := ih (inc + tvs)
+    rw [h1]
+    have heq : tvs + num_tvs e + inc = num_tvs e + (inc + tvs) := by omega
+    rw [heq]
+  | Bind_name n' tvs t e ih =>
+    simp [db_merge, tveLookup, num_tvs]
+    by_cases h : n' == n
+    · simp [h]
+    · simp [h]; exact ih inc
 /- HOL4:
 Theorem tveLookup_inc_none:
  !n inc e.
@@ -609,7 +824,18 @@ Theorem tveLookup_inc_none:
 theorem tveLookup_inc_none :
     ∀ (n : mlstring) (inc : Nat) (e : tenv_val_exp),
       tveLookup n inc e = none ↔
-      tveLookup n 0 e = none := sorry
+      tveLookup n 0 e = none := by
+  intros n inc e
+  induction e generalizing inc with
+  | Empty => simp [tveLookup]
+  | Bind_tvar tvs e ih =>
+    simp only [tveLookup]
+    rw [ih (inc + tvs), ih (0 + tvs)]
+  | Bind_name n' tvs t e ih =>
+    simp [tveLookup]
+    by_cases h : n' == n
+    · simp [h]
+    · simp [h]; exact ih inc
 /- HOL4:
 Theorem tveLookup_freevars:
    !n tvs tenvE tvs' t.
@@ -645,14 +871,26 @@ Theorem bind_var_list_append:
 -/
 theorem bind_var_list_append :
     ∀ (n : Nat) (te1 te2 : List (mlstring × sem_t)) (te3 : tenv_val_exp),
-      bind_var_list n (te1 ++ te2) te3 = bind_var_list n te1 (bind_var_list n te2 te3) := sorry
+      bind_var_list n (te1 ++ te2) te3 = bind_var_list n te1 (bind_var_list n te2 te3) := by
+  intros n te1 te2 te3
+  induction te1 with
+  | nil => rfl
+  | cons p te1 ih =>
+    obtain ⟨x_, t_⟩ := p
+    simp [bind_var_list, ih]
 /- HOL4:
 Theorem num_tvs_bind_var_list[simp]:
  !tvs env tenvE. num_tvs (bind_var_list tvs env tenvE) = num_tvs tenvE
 -/
 theorem num_tvs_bind_var_list :
     ∀ (tvs : Nat) (env : List (mlstring × sem_t)) (tenvE : tenv_val_exp),
-      num_tvs (bind_var_list tvs env tenvE) = num_tvs tenvE := sorry
+      num_tvs (bind_var_list tvs env tenvE) = num_tvs tenvE := by
+  intros tvs env tenvE
+  induction env with
+  | nil => rfl
+  | cons p env ih =>
+    obtain ⟨n_, t_⟩ := p
+    simp [bind_var_list, num_tvs, ih]
 /- HOL4:
 Theorem tenv_val_exp_ok_bvl:
  !tenvE env.
@@ -663,7 +901,21 @@ Theorem tenv_val_exp_ok_bvl:
 theorem tenv_val_exp_ok_bvl :
     ∀ (tenvE : tenv_val_exp) (env : List (mlstring × sem_t)),
       tenv_val_exp_ok tenvE ∧ EVERY (check_freevars (num_tvs tenvE) []) (env.map Prod.snd) →
-      tenv_val_exp_ok (bind_var_list 0 env tenvE) := sorry
+      tenv_val_exp_ok (bind_var_list 0 env tenvE) := by
+  intros tenvE env h
+  obtain ⟨hok, hall⟩ := h
+  induction env with
+  | nil => simp [bind_var_list]; exact hok
+  | cons p env ih =>
+    obtain ⟨n_, t_⟩ := p
+    simp [bind_var_list, tenv_val_exp_ok]
+    simp [EVERY] at hall
+    refine ⟨?_, ?_⟩
+    · have := hall.1
+      simp [num_tvs_bind_var_list]
+      exact this
+    · apply ih
+      simpa [EVERY] using hall.2
 /- HOL4:
 Theorem tveLookup_subst_some:
    ∀n e targs tvs t inc.
@@ -684,14 +936,24 @@ Theorem num_tvs_db_merge[simp]:
 -/
 theorem num_tvs_db_merge :
     ∀ (e1 e2 : tenv_val_exp),
-      num_tvs (db_merge e1 e2) = num_tvs e1 + num_tvs e2 := sorry
+      num_tvs (db_merge e1 e2) = num_tvs e1 + num_tvs e2 := by
+  intros e1 e2
+  induction e1 with
+  | Empty => simp [db_merge, num_tvs]
+  | Bind_tvar tvs e ih => simp [db_merge, num_tvs, ih]; omega
+  | Bind_name n tvs t e ih => simp [db_merge, num_tvs, ih]
 /- HOL4:
 Theorem num_tvs_deBruijn_subst_tenvE[simp]:
  !targs tenvE. num_tvs (deBruijn_subst_tenvE targs tenvE) = num_tvs tenvE
 -/
 theorem num_tvs_deBruijn_subst_tenvE :
     ∀ (targs : List sem_t) (tenvE : tenv_val_exp),
-      num_tvs (deBruijn_subst_tenvE targs tenvE) = num_tvs tenvE := sorry
+      num_tvs (deBruijn_subst_tenvE targs tenvE) = num_tvs tenvE := by
+  intros targs tenvE
+  induction tenvE with
+  | Empty => rfl
+  | Bind_tvar tvs e ih => simp [deBruijn_subst_tenvE, num_tvs, ih]
+  | Bind_name n tvs t e ih => simp [deBruijn_subst_tenvE, num_tvs, ih]
 /- HOL4:
 Theorem tveLookup_inc_some:
  !n inc e tvs t inc2.
@@ -727,7 +989,15 @@ Theorem tenv_val_exp_ok_db_merge:
 -/
 theorem tenv_val_exp_ok_db_merge :
     ∀ (e1 e2 : tenv_val_exp),
-      tenv_val_exp_ok (db_merge e1 e2) → tenv_val_exp_ok e2 := sorry
+      tenv_val_exp_ok (db_merge e1 e2) → tenv_val_exp_ok e2 := by
+  intros e1 e2
+  induction e1 with
+  | Empty => intro h; exact h
+  | Bind_tvar tvs e ih => intro h; simp [db_merge, tenv_val_exp_ok] at h; exact ih h
+  | Bind_name n tvs t e ih =>
+    intro h
+    simp [db_merge, tenv_val_exp_ok] at h
+    exact ih h.2
 /- HOL4:
 Theorem tveLookup_no_tvs:
  !tvs l tenv n t.
@@ -759,7 +1029,13 @@ theorem deBruijn_subst_E_bvl :
       bind_var_list tvs
         (tenv1.map (fun (x, t) => (x, deBruijn_subst (tvs + num_tvs tenv2)
           (targs.map (deBruijn_inc 0 (tvs + num_tvs tenv2))) t)))
-        (deBruijn_subst_tenvE targs tenv2) := sorry
+        (deBruijn_subst_tenvE targs tenv2) := by
+  intros targs tenv1 tenv2 tvs
+  induction tenv1 with
+  | nil => rfl
+  | cons p tenv1 ih =>
+    obtain ⟨x_, t_⟩ := p
+    simp [bind_var_list, deBruijn_subst_tenvE, ih, num_tvs_bind_var_list]
 /- HOL4:
 Theorem db_merge_bvl:
  !tenv1 tenv2 tenv3 tvs.
@@ -770,7 +1046,13 @@ Theorem db_merge_bvl:
 theorem db_merge_bvl :
     ∀ (tenv1 : List (mlstring × sem_t)) (tenv2 tenv3 : tenv_val_exp) (tvs : Nat),
       db_merge (bind_var_list tvs tenv1 tenv2) tenv3 =
-      bind_var_list tvs tenv1 (db_merge tenv2 tenv3) := sorry
+      bind_var_list tvs tenv1 (db_merge tenv2 tenv3) := by
+  intros tenv1 tenv2 tenv3 tvs
+  induction tenv1 with
+  | nil => rfl
+  | cons p tenv1 ih =>
+    obtain ⟨n_, t_⟩ := p
+    simp [bind_var_list, db_merge, ih]
 /- HOL4:
 Theorem tveLookup_db_merge_some:
    !n inc tenvE1 tenvE2 tvs t.
@@ -785,7 +1067,20 @@ theorem tveLookup_db_merge_some :
       tveLookup n inc (db_merge tenvE1 tenvE2) = some (tvs, t) ↔
       tveLookup n inc tenvE1 = some (tvs, t) ∨
       (tveLookup n inc tenvE1 = none ∧
-       tveLookup n (num_tvs tenvE1 + inc) tenvE2 = some (tvs, t)) := sorry
+       tveLookup n (num_tvs tenvE1 + inc) tenvE2 = some (tvs, t)) := by
+  intros n inc tenvE1 tenvE2 tvs t
+  induction tenvE1 generalizing inc with
+  | Empty => simp [db_merge, tveLookup, num_tvs]
+  | Bind_tvar tvs' e ih =>
+    simp [db_merge, tveLookup, num_tvs]
+    rw [ih (inc + tvs')]
+    have heq : tvs' + num_tvs e + inc = num_tvs e + (inc + tvs') := by omega
+    rw [heq]
+  | Bind_name n' tvs' t' e ih =>
+    simp [db_merge, tveLookup, num_tvs]
+    by_cases h : n' == n
+    · simp [h]
+    · simp [h]; exact ih inc
 /- HOL4:
 Theorem type_op_cases:
   (computed/derived theorem: expands type_op into disjunctive normal form)
@@ -793,7 +1088,7 @@ Theorem type_op_cases:
 -/
 theorem type_op_cases_thm :
     ∀ (op_ : op) (ts : List sem_t) (t3 : sem_t),
-      type_op op_ ts t3 ↔ type_op op_ ts t3 := sorry
+      type_op op_ ts t3 ↔ type_op op_ ts t3 := fun _ _ _ => Iff.rfl
 /- HOL4:
 Theorem type_ps_length:
  ∀tvs tenvC ps ts tenv.
@@ -1143,7 +1438,11 @@ theorem ctMap_ok_lookup :
     ∀ (ctMap_ : ctMap) (cn : conN) (tvs : List tvarN) (ts : List sem_t)
       (ti : type_ident) (tn : stamp),
       ctMap_ok ctMap_ ∧ Finmap.FLOOKUP ctMap_ tn = some (tvs, ts, ti) →
-      EVERY (check_freevars 0 tvs) ts := sorry
+      EVERY (check_freevars 0 tvs) ts := by
+  intros ctMap_ cn tvs ts ti tn h
+  obtain ⟨hOK, hL⟩ := h
+  obtain ⟨hev, _, _, _⟩ := hOK
+  exact hev tn (tvs, ts, ti) hL
 /- HOL4:
 Theorem type_def_to_ctMap_mem:
    !tenvT next tds tids.
@@ -1227,7 +1526,21 @@ theorem nsLookup_add_tenvE3 :
     ∀ (tenvE : tenv_val_exp) (tenvV : tenv_val) (n : cml_id modN varN) (t : sem_t)
       (tvs2 : Nat) (mn : modN),
       nsLookup tenvV (.Long mn n) = some (tvs2, t) →
-      nsLookup (add_tenvE tenvE tenvV) (.Long mn n) = some (tvs2, t) := sorry
+      nsLookup (add_tenvE tenvE tenvV) (.Long mn n) = some (tvs2, t) := by
+  intro tenvE
+  induction tenvE with
+  | Empty => intros; assumption
+  | Bind_tvar tvs e ih => intros; exact ih _ _ _ _ _ ‹_›
+  | Bind_name x tvs t e ih =>
+    intros tenvV n_ t_ tvs2 mn h
+    simp [add_tenvE, nsBind]
+    cases hadd : add_tenvE e tenvV with
+    | Bind vs ms =>
+      simp [nsLookup]
+      have := ih tenvV n_ t_ tvs2 mn h
+      rw [hadd] at this
+      simp [nsLookup] at this
+      exact this
 /- HOL4:
 Theorem add_tenvE_bvl:
    !n bindings tenvE tenvV.
@@ -1237,7 +1550,14 @@ Theorem add_tenvE_bvl:
 theorem add_tenvE_bvl :
     ∀ (n : Nat) (bindings : List (mlstring × sem_t)) (tenvE : tenv_val_exp) (tenvV : tenv_val),
       add_tenvE (bind_var_list n bindings tenvE) tenvV =
-      nsBindList (bindings.map (fun (x, t) => (x, (n, t)))) (add_tenvE tenvE tenvV) := sorry
+      nsBindList (bindings.map (fun (x, t) => (x, (n, t)))) (add_tenvE tenvE tenvV) := by
+  intros n bindings
+  induction bindings with
+  | nil => intros; rfl
+  | cons p bindings ih =>
+    intros tenvE tenvV
+    obtain ⟨x_, t_⟩ := p
+    simp [bind_var_list, nsBindList, add_tenvE, ih]
 /- HOL4:
 Theorem type_v_freevars:
  !tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒ check_freevars tvs [] t
@@ -1307,7 +1627,16 @@ Theorem extend_dec_tenv_ok:
 -/
 theorem extend_dec_tenv_ok :
     ∀ (tenv tenv' : type_env),
-      tenv_ok tenv ∧ tenv_ok tenv' → tenv_ok (extend_dec_tenv tenv tenv') := sorry
+      tenv_ok tenv ∧ tenv_ok tenv' → tenv_ok (extend_dec_tenv tenv tenv') := by
+  intros tenv tenv' h
+  obtain ⟨h1, h2⟩ := h
+  obtain ⟨hv1, hc1, ht1⟩ := h1
+  obtain ⟨hv2, hc2, ht2⟩ := h2
+  unfold extend_dec_tenv tenv_ok
+  refine ⟨?_, ?_, ?_⟩
+  · exact nsAll_nsAppend _ _ _ ⟨hv1, hv2⟩
+  · exact nsAll_nsAppend _ _ _ ⟨hc1, hc2⟩
+  · exact nsAll_nsAppend _ _ _ ⟨ht1, ht2⟩
 /- HOL4:
 Theorem type_d_tenv_ok_helper:
   (∀check tenv d tdecs tenv'.
@@ -1356,7 +1685,14 @@ Theorem type_ds_empty[simp]:
 theorem type_ds_empty :
     ∀ (check : Bool) (tenv : type_env) (decls : Set type_ident) (r : type_env),
       type_ds check tenv [] decls r ↔
-      decls = ∅ ∧ r = { v := nsEmpty, c := nsEmpty, t := nsEmpty } := sorry
+      decls = ∅ ∧ r = { v := nsEmpty, c := nsEmpty, t := nsEmpty } := by
+  intros check tenv decls r
+  constructor
+  · intro h
+    cases h
+    refine ⟨rfl, rfl⟩
+  · rintro ⟨rfl, rfl⟩
+    exact type_ds.nil _ _
 /- HOL4:
 Theorem type_ds_sing[simp]:
   !check tenv d decls r.

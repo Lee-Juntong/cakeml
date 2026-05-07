@@ -48,8 +48,90 @@ inductive sem_env where
          «namespace» modN conN (Nat × stamp) → sem_env
 end
 
-instance : BEq v := ⟨fun _ _ => sorry⟩
-instance : BEq sem_env := ⟨fun _ _ => sorry⟩
+-- Generic BEq for namespace via structural equality
+def beq_namespace {m n v : Type} [BEq m] [BEq n] [BEq v] :
+    «namespace» m n v → «namespace» m n v → Bool
+  | .Bind vs1 ms1, .Bind vs2 ms2 =>
+    beq_alist_inner vs1 vs2 && beq_mod_inner ms1 ms2
+  termination_by ns _ => sizeOf ns
+where
+  beq_alist_inner : List (n × v) → List (n × v) → Bool
+    | [], [] => true
+    | (k1, v1) :: rest1, (k2, v2) :: rest2 =>
+      k1 == k2 && v1 == v2 && beq_alist_inner rest1 rest2
+    | _, _ => false
+  beq_mod_inner : List (m × «namespace» m n v) →
+      List (m × «namespace» m n v) → Bool
+    | [], [] => true
+    | (k1, n1) :: rest1, (k2, n2) :: rest2 =>
+      k1 == k2 && beq_namespace n1 n2 && beq_mod_inner rest1 rest2
+    | _, _ => false
+  termination_by ms _ => sizeOf ms
+
+instance {m n v : Type} [BEq m] [BEq n] [BEq v] : BEq («namespace» m n v) :=
+  ⟨beq_namespace⟩
+
+mutual
+def beq_v : v → v → Bool
+  | .Litv l1, .Litv l2 => l1 == l2
+  | .Conv s1 vs1, .Conv s2 vs2 => s1 == s2 && beq_v_list vs1 vs2
+  | .Closure e1 n1 ex1, .Closure e2 n2 ex2 =>
+    beq_sem_env e1 e2 && n1 == n2 && ex1 == ex2
+  | .Recclosure e1 fs1 n1, .Recclosure e2 fs2 n2 =>
+    beq_sem_env e1 e2 && fs1 == fs2 && n1 == n2
+  | .Loc b1 l1, .Loc b2 l2 => b1 == b2 && l1 == l2
+  | .Vectorv vs1, .Vectorv vs2 => beq_v_list vs1 vs2
+  | .Env e1 p1, .Env e2 p2 => beq_sem_env e1 e2 && p1 == p2
+  | _, _ => false
+  termination_by x _ => sizeOf x
+
+def beq_v_list : List v → List v → Bool
+  | [], [] => true
+  | x :: xs, y :: ys => beq_v x y && beq_v_list xs ys
+  | _, _ => false
+  termination_by xs _ => sizeOf xs
+
+def beq_sem_env : sem_env → sem_env → Bool
+  | .mk v1 c1, .mk v2 c2 => beq_namespace_v v1 v2 && beq_namespace_c c1 c2
+  termination_by e _ => sizeOf e
+
+def beq_namespace_v : «namespace» modN varN v → «namespace» modN varN v → Bool
+  | .Bind vs1 ms1, .Bind vs2 ms2 =>
+    beq_alist_v vs1 vs2 && beq_modlist_v ms1 ms2
+  termination_by ns _ => sizeOf ns
+
+def beq_alist_v : List (varN × v) → List (varN × v) → Bool
+  | [], [] => true
+  | (k1, v1) :: rest1, (k2, v2) :: rest2 =>
+    k1 == k2 && beq_v v1 v2 && beq_alist_v rest1 rest2
+  | _, _ => false
+  termination_by xs _ => sizeOf xs
+
+def beq_modlist_v : List (modN × «namespace» modN varN v) →
+    List (modN × «namespace» modN varN v) → Bool
+  | [], [] => true
+  | (k1, n1) :: rest1, (k2, n2) :: rest2 =>
+    k1 == k2 && beq_namespace_v n1 n2 && beq_modlist_v rest1 rest2
+  | _, _ => false
+  termination_by xs _ => sizeOf xs
+
+def beq_namespace_c : «namespace» modN conN (Nat × stamp) →
+    «namespace» modN conN (Nat × stamp) → Bool
+  | .Bind vs1 ms1, .Bind vs2 ms2 =>
+    vs1 == vs2 && beq_modlist_c ms1 ms2
+  termination_by ns _ => sizeOf ns
+
+def beq_modlist_c : List (modN × «namespace» modN conN (Nat × stamp)) →
+    List (modN × «namespace» modN conN (Nat × stamp)) → Bool
+  | [], [] => true
+  | (k1, n1) :: rest1, (k2, n2) :: rest2 =>
+    k1 == k2 && beq_namespace_c n1 n2 && beq_modlist_c rest1 rest2
+  | _, _ => false
+  termination_by xs _ => sizeOf xs
+end
+
+instance : BEq v := ⟨beq_v⟩
+instance : BEq sem_env := ⟨beq_sem_env⟩
 instance : Inhabited v := ⟨.Litv (.IntLit 0)⟩
 instance : Inhabited sem_env := ⟨.mk (.Bind [] []) (.Bind [] [])⟩
 
@@ -290,8 +372,7 @@ def pmatch (envC : env_ctor) (s : store v) : pat → v → alist varN v →
   | .Pas p i, v', env => pmatch envC s p v' ((i, v') :: env)
   | .Ptannot p _, v', env => pmatch envC s p v' env
   | _, _, _ => .Match_type_error
-  termination_by 0
-  decreasing_by all_goals sorry
+  termination_by p _ _ => sizeOf p
 
 def pmatch_list (envC : env_ctor) (s : store v) :
     List pat → List v → alist varN v → match_result (alist varN v)
@@ -306,8 +387,7 @@ def pmatch_list (envC : env_ctor) (s : store v) :
     | .Match_type_error => .Match_type_error
     | .Match env' => pmatch_list envC s ps vs env'
   | _, _, _ => .Match_type_error
-  termination_by 0
-  decreasing_by all_goals sorry
+  termination_by ps _ _ => sizeOf ps
 end
 
 def can_pmatch_all (envC : env_ctor) (refs : store v) : List pat → v → Bool
@@ -354,8 +434,7 @@ def do_eq : v → v → eq_result
   | .Recclosure _ _ _, .Recclosure _ _ _ => .Eq_val true
   | .Env _ (gen1, id1), .Env _ (gen2, id2) => .Eq_val (gen1 == gen2 && id1 == id2)
   | _, _ => .Eq_type_error
-  termination_by 0
-  decreasing_by all_goals sorry
+  termination_by v1 _ => sizeOf v1
 
 def do_eq_list : List v → List v → eq_result
   | [], [] => .Eq_val true
@@ -364,8 +443,7 @@ def do_eq_list : List v → List v → eq_result
     | .Eq_val r => if !r then .Eq_val false else do_eq_list vs1 vs2
     | .Eq_type_error => .Eq_type_error
   | _, _ => .Eq_val false
-  termination_by 0
-  decreasing_by all_goals sorry
+  termination_by vs1 _ => sizeOf vs1
 end
 
 -- Function application
@@ -393,8 +471,7 @@ def v_to_list : v → Option (List v)
       | some vs => some (v1 :: vs)
     else none
   | _ => none
-  termination_by 0
-  decreasing_by all_goals sorry
+  termination_by val => sizeOf val
 
 def list_to_v : List v → v
   | [] => .Conv (some (.TypeStamp (mlstring.strlit "[]") list_type_num)) []
@@ -410,8 +487,7 @@ def v_to_char_list : v → Option (List Char)
       | some cs => some (c :: cs)
     else none
   | _ => none
-  termination_by 0
-  decreasing_by all_goals sorry
+  termination_by val => sizeOf val
 
 def vs_to_string : List v → Option mlstring
   | [] => some (mlstring.strlit "")
@@ -724,14 +800,12 @@ def concrete_v : v → Bool
   | .Conv _ vs => concrete_v_list vs
   | .Vectorv vs => concrete_v_list vs
   | _ => false
-  termination_by 0
-  decreasing_by all_goals sorry
+  termination_by val => sizeOf val
 
 def concrete_v_list : List v → Bool
   | [] => true
   | val_ :: vs => concrete_v val_ && concrete_v_list vs
-  termination_by 0
-  decreasing_by all_goals sorry
+  termination_by vs => sizeOf vs
 end
 
 /- HOL4:
