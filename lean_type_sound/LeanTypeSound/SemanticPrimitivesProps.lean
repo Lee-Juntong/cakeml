@@ -177,22 +177,26 @@ def shift_lookup_64 : shift → word64 → Nat → word64
    (env:'v sem_env) with v := env.v = env
 -/
 theorem with_same_v (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by cases env; rfl
 /- HOL4: Theorem unchanged_env[simp]:
    !(env : 'a sem_env). <| v := env.v; c := env.c |> = env
 -/
 theorem unchanged_env (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by cases env; rfl
 /- HOL4: Theorem with_same_clock:
    (st:'ffi state) with clock := st.clock = st
 -/
 theorem with_same_clock {ffi : Type} (st : cml_state ffi) :
-    { st with clock := st.clock } = st := sorry
+    { st with clock := st.clock } = st := by cases st; rfl
 /- HOL4: Theorem Boolv_11[simp]:
    Boolv b1 = Boolv b2 <=> (b1 = b2)
 -/
 theorem Boolv_11 (b1 b2 : Bool) :
-    Boolv b1 = Boolv b2 ↔ b1 = b2 := sorry
+    Boolv b1 = Boolv b2 ↔ b1 = b2 := by
+  simp [Boolv]
+  constructor
+  · intro h; cases b1 <;> cases b2 <;> simp at h <;> try rfl
+  · intro h; subst h; rfl
 /- HOL4: Theorem extend_dec_env_assoc[simp]:
    !env1 env2 env3.
     extend_dec_env env1 (extend_dec_env env2 env3)
@@ -200,7 +204,13 @@ theorem Boolv_11 (b1 b2 : Bool) :
 -/
 theorem extend_dec_env_assoc (env1 env2 env3 : sem_env) :
     extend_dec_env env1 (extend_dec_env env2 env3) =
-    extend_dec_env (extend_dec_env env1 env2) env3 := sorry
+    extend_dec_env (extend_dec_env env1 env2) env3 := by
+  cases env1 with | mk v1 c1 =>
+  cases env2 with | mk v2 c2 =>
+  cases env3 with | mk v3 c3 =>
+  unfold extend_dec_env
+  simp only [sem_env.v_, sem_env.c]
+  congr 1 <;> exact nsAppend_assoc _ _ _
 /- HOL4: Theorem pat_bindings_accum:
    (!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) /\
    (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)
@@ -252,12 +262,20 @@ theorem FV_defs_MAP (ls : List (varN × varN × exp)) :
     FV_defs ls =
     Set.sUnion (Set.image (fun fxe => FV fxe.2.2 \ {cml_id.Short fxe.2.1})
       (fun fxe => fxe ∈ ls)) := sorry
-/- HOL4: Theorem concrete_v_list[simp]:
+
+/-
+HOL4: Theorem concrete_v_list[simp]:
    !xs. concrete_v_list xs = EVERY concrete_v xs
 -/
 theorem concrete_v_list_thm (xs : List v) :
-    concrete_v_list xs = xs.all concrete_v := sorry
-/- HOL4: Theorem prim_type_cases:
+    concrete_v_list xs = xs.all concrete_v := by
+      induction xs <;> simp_all +decide [ List.all ];
+      · -- The base case when the list is empty is trivially true.
+        simp [concrete_v_list];
+      · unfold concrete_v_list; aesop;
+
+/-
+HOL4: Theorem prim_type_cases:
    !ty. ty = BoolT \/ ty = IntT \/ ty = CharT \/ ty = StrT \/
         ty = WordT W8 \/ ty = WordT W64 \/ ty = Float64T
 -/
@@ -268,4 +286,6 @@ theorem prim_type_cases (ty : prim_type) :
     ty = .StrT ∨
     ty = .WordT .W8 ∨
     ty = .WordT .W64 ∨
-    ty = .Float64T := sorry
+    ty = .Float64T := by
+      rcases ty with ( _ | _ | _ | _ | _ | _ | _ | _ ) <;> simp +decide;
+      rename_i a; cases a <;> tauto;

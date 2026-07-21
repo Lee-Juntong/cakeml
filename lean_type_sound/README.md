@@ -1,3 +1,12 @@
+This project was edited by [Aristotle](https://aristotle.harmonic.fun).
+
+To cite Aristotle:
+- Tag @Aristotle-Harmonic on GitHub PRs/issues
+- Add as co-author to commits:
+```
+Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
+```
+
 # HOL4 to Lean 4 Translation: CakeML Type Soundness
 
 Translation of the 21 HOL4 theory files in `hol4-ultramin/` (the

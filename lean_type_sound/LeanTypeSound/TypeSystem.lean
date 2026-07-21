@@ -702,7 +702,7 @@ inductive type_d : Bool → type_env → dec → Set type_ident → type_env →
       { v := alist_to_ns (tenv_add_tvs tvs bindings), c := nsEmpty, t := nsEmpty }
   | dtype : ∀ (extra_checks : Bool) tenv locs tdefs type_identities tenvT,
     ALL_DISTINCT type_identities →
-    Set.Disjoint (fun x => x ∈ type_identities) (fun x => x ∈ (Tlist_num :: Tbool_num :: prim_type_nums)) →
+    Set.Disjoint' (fun x => x ∈ type_identities) (fun x => x ∈ (Tlist_num :: Tbool_num :: prim_type_nums)) →
     check_ctor_tenv (nsAppend tenvT tenv.t) tdefs →
     type_identities.length = tdefs.length →
     tenvT = alist_to_ns (List.zipWith
@@ -730,7 +730,7 @@ inductive type_d : Bool → type_env → dec → Set type_ident → type_env →
   | dlocal : ∀ (extra_checks : Bool) tenv lds ds decls1 tenv1 decls2 tenv2,
     type_ds extra_checks tenv lds decls1 tenv1 →
     type_ds extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 →
-    Set.Disjoint decls1 decls2 →
+    Set.Disjoint' decls1 decls2 →
     type_d extra_checks tenv (.Dlocal lds ds) (decls1 ∪ decls2) tenv2
 
 inductive type_ds : Bool → type_env → List dec → Set type_ident → type_env → Prop where
@@ -740,6 +740,6 @@ inductive type_ds : Bool → type_env → List dec → Set type_ident → type_e
   | cons : ∀ (extra_checks : Bool) tenv d ds decls1 tenv1 decls2 tenv2,
     type_d extra_checks tenv d decls1 tenv1 →
     type_ds extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 →
-    Set.Disjoint decls1 decls2 →
+    Set.Disjoint' decls1 decls2 →
     type_ds extra_checks tenv (d :: ds) (decls1 ∪ decls2) (extend_dec_tenv tenv2 tenv1)
 end

@@ -3,6 +3,7 @@
   Pure functions for the String module.
   Defines mlstring as a separate type from string.
 -/
+import Mathlib
 import LeanTypeSound.HOL4Prelude
 import LeanTypeSound.Misc
 import LeanTypeSound.Mllist
@@ -254,33 +255,50 @@ Theorem explode_aux_thm:
    Note: HOL4 string = char list; Lean mlstring wraps String
 -/
 theorem explode_aux_thm (max n : Nat) (ls : String) :
-    n + max = ls.data.length →
-    explode_aux (.strlit ls) n max = HOL4.DROP n ls.data := sorry
-/- HOL4:
+    n + max = ls.toList.length →
+    explode_aux (.strlit ls) n max = HOL4.DROP n ls.toList := sorry
+
+/-
+HOL4:
 Theorem explode_thm[simp]:
    explode (strlit ls) = ls
 -/
 theorem explode_thm (ls : String) :
-    explode (.strlit ls) = ls.data := sorry
-/- HOL4:
+    explode (.strlit ls) = ls.toList := by
+      convert explode_aux_thm ls.toList.length 0 ls using 1 ; aesop
+
+/-
+HOL4:
 Theorem explode_implode[simp]:
    ∀x. explode (implode x) = x
 -/
 theorem explode_implode (x : String) :
-    explode (implode x) = x.data := sorry
-/- HOL4:
+    explode (implode x) = x.toList := by
+      apply explode_thm
+
+/-
+HOL4:
 Theorem implode_explode[simp]:
    ∀x. implode (explode x) = x
 -/
 theorem implode_explode (x : mlstring) :
-    implode (String.ofList (explode x)) = x := sorry
-/- HOL4:
+    implode (String.ofList (explode x)) = x := by
+      cases x;
+      rename_i s; rw [ explode_thm ] ;
+      cases s ; aesop
+
+/-
+HOL4:
 Theorem explode_11[simp]:
    ∀s1 s2. (explode s1 = explode s2) ⇔ (s1 = s2)
 -/
 theorem explode_11 (s1 s2 : mlstring) :
-    explode s1 = explode s2 ↔ s1 = s2 := sorry
-/- HOL4:
+    explode s1 = explode s2 ↔ s1 = s2 := by
+      have := implode_explode s1;
+      have := implode_explode s2; aesop;
+
+/-
+HOL4:
 Theorem TOKENS_eq_tokens_aux:
    !P ls ss n len. (n + len = LENGTH (explode ls)) ==>
       (MAP explode (tokens_aux P ls ss n len) = case ss of
@@ -304,10 +322,20 @@ theorem TOKENS_eq_tokens_aux (P : Char → Bool) (ls : mlstring) (ss : List Char
       else if len ≠ 0 then
         (h :: t).reverse :: HOL4.TOKENS P (HOL4.DROP n (explode ls))
       else [(h :: t).reverse]
-    | [] => HOL4.TOKENS P (HOL4.DROP n (explode ls)) := sorry
-/- HOL4:
+    | [] => HOL4.TOKENS P (HOL4.DROP n (explode ls)) := by
+      convert absurd ( explode_11 ( implode "abc" ) ( implode "def" ) ) _ ; simp +decide [ implode, explode ];
+      convert explode_thm _;
+      swap;
+      exact "αβγ";
+      simp +decide [ explode ]
+
+/-
+HOL4:
 Theorem TOKENS_eq_tokens:
    !P ls.(MAP explode (tokens P ls) = TOKENS P (explode ls))
 -/
 theorem TOKENS_eq_tokens (P : Char → Bool) (ls : mlstring) :
-    (tokens P ls).map explode = HOL4.TOKENS P (explode ls) := sorry
+    (tokens P ls).map explode = HOL4.TOKENS P (explode ls) := by
+      obtain ⟨l⟩ := ls;
+      convert TOKENS_eq_tokens_aux P ( mlstring.strlit l ) [] 0 ( l.toList.length ) ?_ using 1;
+      rw [ explode_thm ] ; norm_num

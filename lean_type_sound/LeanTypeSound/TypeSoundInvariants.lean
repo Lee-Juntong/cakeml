@@ -345,7 +345,7 @@ Definition consistent_ctMap_def:
 End
 -/
 def consistent_ctMap {ffi : Type} (st : cml_state ffi) (type_ids : Set type_ident) (ctMap : ctMap) : Prop :=
-  Set.Disjoint type_ids (Finmap.FRANGE (Finmap.o_f (fun p => p.2.2) ctMap)) ∧
+  Set.Disjoint' type_ids (Finmap.FRANGE (Finmap.o_f (fun p => p.2.2) ctMap)) ∧
   ∀ cn id_,
     (stamp.TypeStamp cn id_ ∈ Finmap.FDOM ctMap → id_ < st.next_type_stamp) ∧
     (stamp.ExnStamp id_ ∈ Finmap.FDOM ctMap → id_ < st.next_exn_stamp)

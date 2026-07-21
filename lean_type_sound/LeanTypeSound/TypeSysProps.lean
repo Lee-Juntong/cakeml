@@ -111,7 +111,8 @@ Theorem unchanged_tenv[simp]:
 -/
 theorem unchanged_tenv :
     ∀ (tenv : type_env),
-      { v := tenv.v, c := tenv.c, t := tenv.t : type_env} = tenv := sorry
+      { v := tenv.v, c := tenv.c, t := tenv.t : type_env} = tenv := by
+  intro tenv; cases tenv; rfl
 /- HOL4:
 Theorem extend_dec_tenv_assoc[simp]:
    !tenv1 tenv2 tenv3.
@@ -122,31 +123,37 @@ Theorem extend_dec_tenv_assoc[simp]:
 theorem extend_dec_tenv_assoc_thm :
     ∀ (tenv1 tenv2 tenv3 : type_env),
       extend_dec_tenv tenv1 (extend_dec_tenv tenv2 tenv3) =
-      extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3 := sorry
+      extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3 := by
+  intro t1 t2 t3
+  cases t1; cases t2; cases t3
+  unfold extend_dec_tenv
+  simp [type_env.v, type_env.c, type_env.t]
+  exact ⟨nsAppend_assoc _ _ _, nsAppend_assoc _ _ _, nsAppend_assoc _ _ _⟩
 /- HOL4:
 Theorem tenv_val_ok_nsEmpty[simp]:
    tenv_val_ok nsEmpty
 -/
 theorem tenv_val_ok_nsEmpty :
-    tenv_val_ok nsEmpty := sorry
+    tenv_val_ok nsEmpty := by simp [tenv_val_ok, nsAll_nsEmpty]
 /- HOL4:
 Theorem tenv_ctor_ok_nsEmpty[simp]:
    tenv_ctor_ok nsEmpty
 -/
 theorem tenv_ctor_ok_nsEmpty :
-    tenv_ctor_ok nsEmpty := sorry
+    tenv_ctor_ok nsEmpty := by simp [tenv_ctor_ok, nsAll_nsEmpty]
 /- HOL4:
 Theorem tenv_abbrev_ok_nsEmpty[simp]:
    tenv_abbrev_ok nsEmpty
 -/
 theorem tenv_abbrev_ok_nsEmpty :
-    tenv_abbrev_ok nsEmpty := sorry
+    tenv_abbrev_ok nsEmpty := by simp [tenv_abbrev_ok, nsAll_nsEmpty]
 /- HOL4:
 Theorem tenv_ok_empty[simp]:
    tenv_ok <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>
 -/
 theorem tenv_ok_empty :
-    tenv_ok { v := nsEmpty, c := nsEmpty, t := nsEmpty } := sorry
+    tenv_ok { v := nsEmpty, c := nsEmpty, t := nsEmpty } := by
+  simp [tenv_ok, tenv_val_ok, tenv_ctor_ok, tenv_abbrev_ok, nsAll_nsEmpty]
 /- HOL4:
 Theorem check_freevars_add:
  (!tvs tvs' t. check_freevars tvs tvs' t ⇒
@@ -171,7 +178,9 @@ theorem check_freevars_subst_single :
       check_freevars dbmax tvs t ∧
       EVERY (check_freevars dbmax tvs') ts →
       check_freevars dbmax tvs' (type_subst (Finmap.alist_to_fmap (ZIP (tvs, ts))) t) := sorry
-/- HOL4:
+
+/-
+HOL4:
 Theorem deBruijn_inc0:
  (!t sk. deBruijn_inc sk 0 t = t) ∧
  (!ts sk. MAP (deBruijn_inc sk 0) ts = ts)
@@ -179,6 +188,7 @@ Theorem deBruijn_inc0:
 theorem deBruijn_inc0 :
     (∀ (t : sem_t) (sk : Nat), deBruijn_inc sk 0 t = t) ∧
     (∀ (ts : List sem_t) (sk : Nat), ts.map (deBruijn_inc sk 0) = ts) := sorry
+
 /- HOL4:
 Theorem deBruijn_inc_deBruijn_inc:
  !sk i2 t i1.
@@ -1127,7 +1137,7 @@ Theorem ctMap_ok_merge_imp:
 -/
 theorem ctMap_ok_merge_imp :
     ∀ (ctMap1 ctMap2 : ctMap),
-      Set.Disjoint
+      Set.Disjoint'
         (Finmap.FRANGE (Finmap.o_f (fun p => p.2.2) ctMap1))
         (Finmap.FRANGE (Finmap.o_f (fun p => p.2.2) ctMap2)) ∧
       ctMap_ok ctMap1 ∧ ctMap_ok ctMap2 →
@@ -1343,11 +1353,14 @@ theorem type_d_tenv_ok :
       type_d check tenv d tdecs tenv' ∧
       tenv_ok tenv →
       tenv_ok (extend_dec_tenv tenv' tenv) := sorry
-/- HOL4: (commented out)
-Theorem type_d_mod -/
--- type_d_mod is commented out in the HOL4 source
 
-/- HOL4:
+/-
+HOL4: (commented out)
+Theorem type_d_mod
+
+type_d_mod is commented out in the HOL4 source
+
+HOL4:
 Theorem type_ds_empty[simp]:
   !check tenv decls r.
   type_ds check tenv [] decls r ⇔
@@ -1356,7 +1369,14 @@ Theorem type_ds_empty[simp]:
 theorem type_ds_empty :
     ∀ (check : Bool) (tenv : type_env) (decls : Set type_ident) (r : type_env),
       type_ds check tenv [] decls r ↔
-      decls = ∅ ∧ r = { v := nsEmpty, c := nsEmpty, t := nsEmpty } := sorry
+      decls = ∅ ∧ r = { v := nsEmpty, c := nsEmpty, t := nsEmpty } := by
+                          intros check tenv decls r;
+                          constructor;
+                          · rintro ⟨ h₁, h₂ ⟩;
+                            exact ⟨ rfl, rfl ⟩;
+                          · rintro ⟨ rfl, rfl ⟩;
+                            constructor
+
 /- HOL4:
 Theorem type_ds_sing[simp]:
   !check tenv d decls r.
@@ -1396,9 +1416,3 @@ Theorem tenv_names_bind_var_list:
 theorem tenv_names_bind_var_list :
     ∀ (n : Nat) (l1 : List (mlstring × sem_t)) (l2 : tenv_val_exp),
       tenv_names (bind_var_list n l1 l2) = Set.union (fun x => x ∈ l1.map Prod.fst) (tenv_names l2) := sorry
-/- HOL4: (commented out, bind_var_list2 not available in Lean)
-Theorem tenv_names_bind_var_list2:
-   ∀l1 tenv. tenv_names (bind_var_list2 l1 tenv) = set (MAP FST l1) ∪ tenv_names tenv
-  Note: bind_var_list2 is not defined in the Lean translation.
--/
--- tenv_names_bind_var_list2 is not translatable (bind_var_list2 not available)

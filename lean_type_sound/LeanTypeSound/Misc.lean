@@ -183,17 +183,50 @@ Theorem find_index_LESS_LENGTH:
 -/
 theorem find_index_LESS_LENGTH {α : Type} [BEq α]
     (ls : List α) (n : α) (m i : Nat) :
-    find_index n ls m = some i → m ≤ i ∧ i < m + ls.length := sorry
+    find_index n ls m = some i → m ≤ i ∧ i < m + ls.length := by
+  induction ls generalizing m with
+  | nil => simp [find_index]
+  | cons x xs ih =>
+    simp [find_index]
+    split
+    · intro h; cases h; omega
+    · intro h
+      have ⟨h1, h2⟩ := ih (m + 1) h
+      omega
 /- HOL4:
 Theorem ALOOKUP_find_index_SOME:
    (ALOOKUP env k = SOME v) ⇒
     ∃i. (find_index k (MAP FST env) 0 = SOME i) ∧ i < LENGTH env ∧ (v = SND (EL i env))
 -/
+private theorem find_index_shift {α : Type} [BEq α] (k : α) (ls : List α) (m : Nat) :
+    find_index k ls (m + 1) = (find_index k ls m).map (· + 1) := by
+  induction ls generalizing m with
+  | nil => simp [find_index]
+  | cons x xs ih =>
+    simp [find_index]
+    split
+    · simp [Option.map]
+    · rw [show m + 1 + 1 = (m + 1) + 1 from by omega]; rw [ih]
+
 theorem ALOOKUP_find_index_SOME {α β : Type} [BEq α] [Inhabited α] [Inhabited β]
     {env : List (α × β)} {k : α} {val_ : β} :
     ALOOKUP env k = some val_ →
     ∃ i, find_index k (env.map Prod.fst) 0 = some i ∧
-      i < env.length ∧ val_ = (EL i env).2 := sorry
+      i < env.length ∧ val_ = (EL i env).2 := by
+  intro h
+  induction env with
+  | nil => simp [ALOOKUP] at h
+  | cons p rest ih =>
+    obtain ⟨a, b⟩ := p
+    simp only [ALOOKUP] at h
+    simp only [List.map, find_index]
+    split at h <;> rename_i hcond
+    · injection h with h
+      exact ⟨0, by simp [hcond], by simp, by simp [EL, h]⟩
+    · obtain ⟨i, hi1, hi2, hi3⟩ := ih h
+      refine ⟨i + 1, ?_, by simp; omega, ?_⟩
+      · simp [hcond]; rw [find_index_shift]; rw [hi1]; rfl
+      · simp [EL, hi3]
 /- HOL4:
 Theorem IS_PREFIX_THM:
   !l2 l1. IS_PREFIX l1 l2 <=> (LENGTH l2 <= LENGTH l1) /\ !n. n < LENGTH l2 ==> (EL n l2 = EL n l1)
@@ -207,25 +240,43 @@ Theorem FST_pair:
   (λ(n,v). n) = FST
 -/
 theorem FST_pair {α β : Type} :
-    (fun (p : α × β) => p.1) = Prod.fst := sorry
+    (fun (p : α × β) => p.1) = Prod.fst := by ext ⟨a, b⟩; rfl
 /- HOL4:
 Theorem LESS_1[simp]:
   x < 1 ⇔ (x = 0:num)
 -/
 theorem LESS_1 {x : Nat} :
-    x < 1 ↔ x = 0 := sorry
+    x < 1 ↔ x = 0 := by omega
 /- HOL4:
 Theorem map_some_eq:
   !l1 l2. (MAP SOME l1 = MAP SOME l2) ⇔ (l1 = l2)
 -/
 theorem map_some_eq {α : Type} (l1 l2 : List α) :
-    l1.map some = l2.map some ↔ l1 = l2 := sorry
+    l1.map some = l2.map some ↔ l1 = l2 := by
+  constructor
+  · intro h
+    induction l1 generalizing l2 with
+    | nil =>
+      cases l2 with
+      | nil => rfl
+      | cons b t2 => simp [List.map] at h
+    | cons a t ih =>
+      cases l2 with
+      | nil => simp [List.map] at h
+      | cons b t2 =>
+        simp [List.map] at h
+        obtain ⟨rfl, h2⟩ := h
+        congr 1
+        exact ih t2 h2
+  · intro h; rw [h]
 /- HOL4:
 Theorem map_some_eq_append:
   !l1 l2 l3. (MAP SOME l1 ++ MAP SOME l2 = MAP SOME l3) ⇔ (l1 ++ l2 = l3)
 -/
 theorem map_some_eq_append {α : Type} (l1 l2 l3 : List α) :
-    l1.map some ++ l2.map some = l3.map some ↔ l1 ++ l2 = l3 := sorry
+    l1.map some ++ l2.map some = l3.map some ↔ l1 ++ l2 = l3 := by
+  rw [← List.map_append]
+  exact map_some_eq (l1 ++ l2) l3
 /- HOL4:
 Theorem MAP_EQ_MAP_IMP:
    !xs ys f. (!x y. MEM x xs /\ MEM y ys /\ (f x = f y) ==> (x = y)) ==>
@@ -233,22 +284,51 @@ Theorem MAP_EQ_MAP_IMP:
 -/
 theorem MAP_EQ_MAP_IMP {α β : Type} (xs ys : List α) (f : α → β) :
     (∀ x y, x ∈ xs ∧ y ∈ ys ∧ f x = f y → x = y) →
-    xs.map f = ys.map f → xs = ys := sorry
+    xs.map f = ys.map f → xs = ys := by
+  intro hinj hmf
+  induction xs generalizing ys with
+  | nil =>
+    cases ys with
+    | nil => rfl
+    | cons y ys => simp [List.map] at hmf
+  | cons x xs ih =>
+    cases ys with
+    | nil => simp [List.map] at hmf
+    | cons y ys =>
+      simp [List.map] at hmf
+      obtain ⟨h1, h2⟩ := hmf
+      have hxy := hinj x y ⟨List.Mem.head _, List.Mem.head _, h1⟩
+      subst hxy; congr 1
+      apply ih
+      · intro a b ⟨ha, hb, hab⟩
+        exact hinj a b ⟨List.Mem.tail _ ha, List.Mem.tail _ hb, hab⟩
+      · exact h2
 /- HOL4:
 Theorem FDOM_FLOOKUP:
    x ∈ FDOM f ⇔ ∃v. FLOOKUP f x = SOME v
 -/
 theorem FDOM_FLOOKUP {α β : Type} {x : α} {f : Finmap α β} :
-    x ∈ Finmap.FDOM f ↔ ∃ val_, Finmap.FLOOKUP f x = some val_ := sorry
+    x ∈ Finmap.FDOM f ↔ ∃ val_, Finmap.FLOOKUP f x = some val_ := by
+  change (f x).isSome = true ↔ _
+  simp only [Finmap.FLOOKUP]
+  constructor
+  · intro h
+    match hf : f x with
+    | none => simp [hf] at h
+    | some v => exact ⟨v, rfl⟩
+  · intro ⟨v, hv⟩; simp [hv]
 /- HOL4:
 Theorem DROP_EMPTY:
    !ls n. (DROP n ls = []) ==> (n >= LENGTH ls)
 -/
 theorem DROP_EMPTY {α : Type} (ls : List α) (n : Nat) :
-    DROP n ls = [] → n ≥ ls.length := sorry
+    DROP n ls = [] → n ≥ ls.length := by
+  intro h
+  simp [DROP] at h
+  omega
 /- HOL4:
 Theorem plus_0_I[simp]:
    $+ 0n = I
 -/
 theorem plus_0_I :
-    (fun (n : Nat) => 0 + n) = id := sorry
+    (fun (n : Nat) => 0 + n) = id := by ext n; simp
