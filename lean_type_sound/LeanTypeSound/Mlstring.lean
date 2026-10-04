@@ -39,7 +39,7 @@ Definition strsub_def[simp]:
 End
 -/
 def strsub : mlstring → Nat → Char
-  | .strlit s, n => s.get ⟨n⟩
+  | .strlit s, n => s.toList[n]!
 
 /- HOL4:
 Definition concat_def:

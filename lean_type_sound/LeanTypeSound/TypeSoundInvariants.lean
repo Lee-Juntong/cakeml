@@ -165,10 +165,10 @@ inductive type_v : Nat → ctMap → tenv_store → v → sem_t → Prop where
       (ti : type_ident) (stmp : stamp),
     (∀ t', t' ∈ ts' → check_freevars tvs [] t') →
     tvs'.length = ts'.length →
-    vs.length = (ts.map (type_subst (Finmap.alist_to_fmap (tvs'.zip ts').reverse))).length →
+    vs.length = (ts.map (type_subst (Finmap.FUPDATE_LIST Finmap.FEMPTY (tvs'.zip ts').reverse))).length →
     (∀ (i : Nat), i < vs.length →
       type_v tvs ctMap_ tenvS vs[i]!
-        (ts.map (type_subst (Finmap.alist_to_fmap (tvs'.zip ts').reverse)))[i]!) →
+        (ts.map (type_subst (Finmap.FUPDATE_LIST Finmap.FEMPTY (tvs'.zip ts').reverse)))[i]!) →
     Finmap.FLOOKUP ctMap_ stmp = some (tvs', ts, ti) →
     type_v tvs ctMap_ tenvS (.Conv (some stmp) vs) (.Tapp ts' ti)
   | conv_none : ∀ (tvs : Nat) (ctMap_ : ctMap) (tenvS : tenv_store)
@@ -184,9 +184,14 @@ inductive type_v : Nat → ctMap → tenv_store → v → sem_t → Prop where
     num_tvs tenvE = 0 →
     nsAll2 (type_ctor ctMap_) (sem_env_c env) tenv.c →
     /- nsAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) env.v (add_tenvE tenvE tenv.v)
-       expanded for strict positivity: domain equality + typing property -/
+       expanded for strict positivity: equal value domains, the module path
+       conditions of both nsSub directions, and the typing property -/
     (∀ (id_ : cml_id modN varN),
       (nsLookup (sem_env_v env) id_ = none ↔ nsLookup (add_tenvE tenvE tenv.v) id_ = none)) →
+    (∀ (path : List modN),
+      nsLookupMod (add_tenvE tenvE tenv.v) path = none → nsLookupMod (sem_env_v env) path = none) →
+    (∀ (path : List modN),
+      nsLookupMod (sem_env_v env) path = none → nsLookupMod (add_tenvE tenvE tenv.v) path = none) →
     (∀ (id_ : cml_id modN varN) (val_ : v) (p : Nat × sem_t),
       nsLookup (sem_env_v env) id_ = some val_ →
       nsLookup (add_tenvE tenvE tenv.v) id_ = some p →
@@ -202,9 +207,13 @@ inductive type_v : Nat → ctMap → tenv_store → v → sem_t → Prop where
     tenv_val_exp_ok tenvE →
     num_tvs tenvE = 0 →
     nsAll2 (type_ctor ctMap_) (sem_env_c env) tenv.c →
-    /- nsAll2 expanded: domain equality + typing property -/
+    /- nsAll2 expanded: equal value domains, module path conditions, typing property -/
     (∀ (id_ : cml_id modN varN),
       (nsLookup (sem_env_v env) id_ = none ↔ nsLookup (add_tenvE tenvE tenv.v) id_ = none)) →
+    (∀ (path : List modN),
+      nsLookupMod (add_tenvE tenvE tenv.v) path = none → nsLookupMod (sem_env_v env) path = none) →
+    (∀ (path : List modN),
+      nsLookupMod (sem_env_v env) path = none → nsLookupMod (add_tenvE tenvE tenv.v) path = none) →
     (∀ (id_ : cml_id modN varN) (val_ : v) (p : Nat × sem_t),
       nsLookup (sem_env_v env) id_ = some val_ →
       nsLookup (add_tenvE tenvE tenv.v) id_ = some p →

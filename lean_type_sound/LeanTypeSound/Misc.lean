@@ -181,7 +181,7 @@ theorem tlookup_bij_iff {names : Sptree Nat} :
 Theorem find_index_LESS_LENGTH:
    ∀ls n m i. (find_index n ls m = SOME i) ⇒ (m <= i) ∧ (i < m + LENGTH ls)
 -/
-theorem find_index_LESS_LENGTH {α : Type} [BEq α]
+theorem find_index_LESS_LENGTH {α : Type} [BEq α] [LawfulBEq α]
     (ls : List α) (n : α) (m i : Nat) :
     find_index n ls m = some i → m ≤ i ∧ i < m + ls.length := sorry
 /- HOL4:
@@ -189,7 +189,7 @@ Theorem ALOOKUP_find_index_SOME:
    (ALOOKUP env k = SOME v) ⇒
     ∃i. (find_index k (MAP FST env) 0 = SOME i) ∧ i < LENGTH env ∧ (v = SND (EL i env))
 -/
-theorem ALOOKUP_find_index_SOME {α β : Type} [BEq α] [Inhabited α] [Inhabited β]
+theorem ALOOKUP_find_index_SOME {α β : Type} [BEq α] [LawfulBEq α] [Inhabited α] [Inhabited β]
     {env : List (α × β)} {k : α} {val_ : β} :
     ALOOKUP env k = some val_ →
     ∃ i, find_index k (env.map Prod.fst) 0 = some i ∧
@@ -198,7 +198,7 @@ theorem ALOOKUP_find_index_SOME {α β : Type} [BEq α] [Inhabited α] [Inhabite
 Theorem IS_PREFIX_THM:
   !l2 l1. IS_PREFIX l1 l2 <=> (LENGTH l2 <= LENGTH l1) /\ !n. n < LENGTH l2 ==> (EL n l2 = EL n l1)
 -/
-theorem IS_PREFIX_THM {α : Type} [BEq α] [Inhabited α]
+theorem IS_PREFIX_THM {α : Type} [BEq α] [LawfulBEq α] [Inhabited α]
     (l2 l1 : List α) :
     IS_PREFIX l1 l2 = true ↔
     l2.length ≤ l1.length ∧ ∀ n, n < l2.length → EL n l2 = EL n l1 := sorry

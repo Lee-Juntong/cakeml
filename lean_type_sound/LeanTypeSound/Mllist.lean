@@ -12,10 +12,8 @@ Definition sort_def:
   sort = mergesort$mergesort_tail
 End
 -/
-def sort {α : Type} (cmp : α → α → ordering) (l : List α) : List α :=
-  l.mergeSort (fun a b => cmp a b != .GREATER)
-  termination_by 0
-  decreasing_by all_goals sorry
+def sort {α : Type} (R : α → α → Bool) (l : List α) : List α :=
+  l.mergeSort R
 
 /- HOL4:
 Definition nth_def:

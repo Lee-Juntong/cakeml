@@ -48,8 +48,48 @@ inductive sem_env where
          «namespace» modN conN (Nat × stamp) → sem_env
 end
 
-instance : BEq v := ⟨fun _ _ => sorry⟩
-instance : BEq sem_env := ⟨fun _ _ => sorry⟩
+/- HOL4 equality on v and sem_env is structural. Lean cannot derive BEq for this
+   nested mutual type, so the comparison is written out. -/
+mutual
+def c_ns_beq : «namespace» modN conN (Nat × stamp) → «namespace» modN conN (Nat × stamp) → Bool
+  | .Bind vs1 ms1, .Bind vs2 ms2 => vs1 == vs2 && c_mods_beq ms1 ms2
+def c_mods_beq : List (modN × «namespace» modN conN (Nat × stamp)) →
+    List (modN × «namespace» modN conN (Nat × stamp)) → Bool
+  | [], [] => true
+  | (k1, a) :: r1, (k2, b) :: r2 => k1 == k2 && c_ns_beq a b && c_mods_beq r1 r2
+  | _, _ => false
+end
+
+mutual
+def v_beq : v → v → Bool
+  | .Litv l1, .Litv l2 => l1 == l2
+  | .Conv s1 vs1, .Conv s2 vs2 => s1 == s2 && v_list_beq vs1 vs2
+  | .Closure e1 n1 x1, .Closure e2 n2 x2 => sem_env_beq e1 e2 && n1 == n2 && x1 == x2
+  | .Recclosure e1 fs1 n1, .Recclosure e2 fs2 n2 => sem_env_beq e1 e2 && fs1 == fs2 && n1 == n2
+  | .Loc b1 n1, .Loc b2 n2 => b1 == b2 && n1 == n2
+  | .Vectorv vs1, .Vectorv vs2 => v_list_beq vs1 vs2
+  | .Env e1 p1, .Env e2 p2 => sem_env_beq e1 e2 && p1 == p2
+  | _, _ => false
+def v_list_beq : List v → List v → Bool
+  | [], [] => true
+  | a :: r1, b :: r2 => v_beq a b && v_list_beq r1 r2
+  | _, _ => false
+def sem_env_beq : sem_env → sem_env → Bool
+  | .mk v1 c1, .mk v2 c2 => v_ns_beq v1 v2 && c_ns_beq c1 c2
+def v_ns_beq : «namespace» modN varN v → «namespace» modN varN v → Bool
+  | .Bind vs1 ms1, .Bind vs2 ms2 => v_binds_beq vs1 vs2 && v_mods_beq ms1 ms2
+def v_binds_beq : List (varN × v) → List (varN × v) → Bool
+  | [], [] => true
+  | (k1, a) :: r1, (k2, b) :: r2 => k1 == k2 && v_beq a b && v_binds_beq r1 r2
+  | _, _ => false
+def v_mods_beq : List (modN × «namespace» modN varN v) → List (modN × «namespace» modN varN v) → Bool
+  | [], [] => true
+  | (k1, a) :: r1, (k2, b) :: r2 => k1 == k2 && v_ns_beq a b && v_mods_beq r1 r2
+  | _, _ => false
+end
+
+instance : BEq v := ⟨v_beq⟩
+instance : BEq sem_env := ⟨sem_env_beq⟩
 instance : Inhabited v := ⟨.Litv (.IntLit 0)⟩
 instance : Inhabited sem_env := ⟨.mk (.Bind [] []) (.Bind [] [])⟩
 

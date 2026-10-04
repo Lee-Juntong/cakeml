@@ -118,7 +118,7 @@ def FV : exp → Set (cml_id modN varN)
   | .If e1 e2 e3 => FV e1 ∪ FV e2 ∪ FV e3
   | .Mat e pes => FV e ∪ FV_pes pes
   | .Let xo e b => FV e ∪ (FV b \ (match xo with | none => ∅ | some x => {cml_id.Short x}))
-  | .Letrec defs b => FV_defs defs ∪ (FV b \ (fun x => x ∈ defs.map (fun (f, _, _) => cml_id.Short f)))
+  | .Letrec defs b => (FV_defs defs ∪ FV b) \ (fun x => x ∈ defs.map (fun (f, _, _) => cml_id.Short f))
   | .Tannot e _ => FV e
   | .Lannot e _ => FV e
 
