@@ -786,14 +786,58 @@ theorem tveLookup_db_merge_some :
       tveLookup n inc tenvE1 = some (tvs, t) ∨
       (tveLookup n inc tenvE1 = none ∧
        tveLookup n (num_tvs tenvE1 + inc) tenvE2 = some (tvs, t)) := sorry
-/- HOL4:
-Theorem type_op_cases:
-  (computed/derived theorem: expands type_op into disjunctive normal form)
-  In Lean, this is the definitional unfolding of type_op.
--/
+/- HOL4: Theorem type_op_cases:
+   Computed by HOL4 from type_op_def (SIMP_CONV with type_op_def, the case_eq
+   theorems, DNF_ss, and PULL_EXISTS). Written here as that case expansion. -/
 theorem type_op_cases_thm :
     ∀ (op_ : op) (ts : List sem_t) (t3 : sem_t),
-      type_op op_ ts t3 ↔ type_op op_ ts t3 := sorry
+      type_op op_ ts t3 ↔
+        (∃ u1 u2, op_ = .Opapp ∧ ts = [u1, u2] ∧ u1 = Tfn u2 t3) ∨
+        (∃ sh n u1, op_ = .Shift .W8 sh n ∧ ts = [u1] ∧ u1 = Tword8 ∧ t3 = Tword8) ∨
+        (∃ sh n u1, op_ = .Shift .W64 sh n ∧ ts = [u1] ∧ u1 = Tword64 ∧ t3 = Tword64) ∨
+        (∃ u1 u2, op_ = .Equality ∧ ts = [u1, u2] ∧ u1 = u2 ∧ t3 = Tbool) ∨
+        (∃ a ty, op_ = .Arith a ty ∧ (∀ arg, arg ∈ ts → arg = t_of ty) ∧ t3 = t_of ty ∧
+          supported_arith a ty = some ts.length) ∨
+        (∃ ty1 ty2 u1, op_ = .FromTo ty1 ty2 ∧ ts = [u1] ∧ u1 = t_of ty1 ∧ t3 = t_of ty2 ∧
+          supported_conversion ty1 ty2 = true) ∨
+        (∃ tst ty u1 u2, op_ = .Test tst ty ∧ ts = [u1, u2] ∧ u1 = u2 ∧ t3 = Tbool ∧
+          u1 = t_of ty ∧ supported_test tst ty = true) ∨
+        (∃ u1 u2, op_ = .Opassign ∧ ts = [u1, u2] ∧ u1 = Tref u2 ∧ t3 = Ttup []) ∨
+        (∃ u1, op_ = .Opref ∧ ts = [u1] ∧ t3 = Tref u1) ∨
+        (∃ u1, op_ = .Opderef ∧ ts = [u1] ∧ u1 = Tref t3) ∨
+        (∃ u1 u2, op_ = .Aw8alloc ∧ ts = [u1, u2] ∧ u1 = Tint ∧ u2 = Tword8 ∧ t3 = Tword8array) ∨
+        (∃ u1 u2, op_ = .Aw8sub ∧ ts = [u1, u2] ∧ u1 = Tword8array ∧ u2 = Tint ∧ t3 = Tword8) ∨
+        (∃ u1, op_ = .Aw8length ∧ ts = [u1] ∧ u1 = Tword8array ∧ t3 = Tint) ∨
+        (∃ u1 u2 u3, op_ = .Aw8update ∧ ts = [u1, u2, u3] ∧ u1 = Tword8array ∧ u2 = Tint ∧
+          u3 = Tword8 ∧ t3 = Ttup []) ∨
+        (∃ u1 u2 u3, op_ = .CopyStrStr ∧ ts = [u1, u2, u3] ∧ u1 = Tstring ∧ u2 = Tint ∧
+          u3 = Tint ∧ t3 = Tstring) ∨
+        (∃ u1 u2 u3 u4 u5, op_ = .CopyStrAw8 ∧ ts = [u1, u2, u3, u4, u5] ∧ u1 = Tstring ∧
+          u2 = Tint ∧ u3 = Tint ∧ u4 = Tword8array ∧ u5 = Tint ∧ t3 = Ttup []) ∨
+        (∃ u1 u2 u3, op_ = .CopyAw8Str ∧ ts = [u1, u2, u3] ∧ u1 = Tword8array ∧ u2 = Tint ∧
+          u3 = Tint ∧ t3 = Tstring) ∨
+        (∃ u1 u2 u3 u4 u5, op_ = .CopyAw8Aw8 ∧ ts = [u1, u2, u3, u4, u5] ∧ u1 = Tword8array ∧
+          u2 = Tint ∧ u3 = Tint ∧ u4 = Tword8array ∧ u5 = Tint ∧ t3 = Ttup []) ∨
+        (∃ u1, op_ = .Implode ∧ ts = [u1] ∧ u1 = Tlist Tchar ∧ t3 = Tstring) ∨
+        (∃ u1, op_ = .Explode ∧ ts = [u1] ∧ u1 = Tstring ∧ t3 = Tlist Tchar) ∨
+        (∃ u1 u2, op_ = .Strsub ∧ ts = [u1, u2] ∧ u1 = Tstring ∧ u2 = Tint ∧ t3 = Tchar) ∨
+        (∃ u1, op_ = .Strlen ∧ ts = [u1] ∧ u1 = Tstring ∧ t3 = Tint) ∨
+        (∃ u1, op_ = .Strcat ∧ ts = [u1] ∧ u1 = Tlist Tstring ∧ t3 = Tstring) ∨
+        (∃ u1 ctor, op_ = .VfromList ∧ ts = [.Tapp [u1] ctor] ∧ ctor = Tlist_num ∧
+          t3 = Tvector u1) ∨
+        (∃ u1 u2, op_ = .Vsub ∧ ts = [u1, u2] ∧ u2 = Tint ∧ Tvector t3 = u1) ∨
+        (∃ u1 ctor, op_ = .Vlength ∧ ts = [.Tapp [u1] ctor] ∧ ctor = Tvector_num ∧ t3 = Tint) ∨
+        (∃ u1 u2, op_ = .Aalloc ∧ ts = [u1, u2] ∧ u1 = Tint ∧ t3 = Tarray u2) ∨
+        (∃ u1, op_ = .AallocEmpty ∧ ts = [u1] ∧ u1 = Ttup [] ∧ ∃ u2, t3 = Tarray u2) ∨
+        (∃ u1 u2, op_ = .Asub ∧ ts = [u1, u2] ∧ u2 = Tint ∧ Tarray t3 = u1) ∨
+        (∃ u1 ctor, op_ = .Alength ∧ ts = [.Tapp [u1] ctor] ∧ ctor = Tarray_num ∧ t3 = Tint) ∨
+        (∃ u1 u2 u3, op_ = .Aupdate ∧ ts = [u1, u2, u3] ∧ u1 = Tarray u3 ∧ u2 = Tint ∧
+          t3 = Ttup []) ∨
+        (∃ u1 u2, op_ = .ConfigGC ∧ ts = [u1, u2] ∧ u1 = Tint ∧ u2 = Tint ∧ t3 = Ttup []) ∨
+        (∃ nm u1 u2, op_ = .FFI nm ∧ ts = [u1, u2] ∧ u1 = Tstring ∧ u2 = Tword8array ∧
+          t3 = Ttup []) ∨
+        (∃ u1 ctor u2, op_ = .ListAppend ∧ ts = [.Tapp [u1] ctor, u2] ∧ ctor = Tlist_num ∧
+          u2 = sem_t.Tapp [u1] ctor ∧ t3 = u2) := sorry
 /- HOL4:
 Theorem type_ps_length:
  ∀tvs tenvC ps ts tenv.
