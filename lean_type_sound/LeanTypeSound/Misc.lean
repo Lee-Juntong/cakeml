@@ -207,25 +207,40 @@ Theorem FST_pair:
   (λ(n,v). n) = FST
 -/
 theorem FST_pair {α β : Type} :
-    (fun (p : α × β) => p.1) = Prod.fst := sorry
+    (fun (p : α × β) => p.1) = Prod.fst := rfl
 /- HOL4:
 Theorem LESS_1[simp]:
   x < 1 ⇔ (x = 0:num)
 -/
 theorem LESS_1 {x : Nat} :
-    x < 1 ↔ x = 0 := sorry
+    x < 1 ↔ x = 0 := by omega
 /- HOL4:
 Theorem map_some_eq:
   !l1 l2. (MAP SOME l1 = MAP SOME l2) ⇔ (l1 = l2)
 -/
 theorem map_some_eq {α : Type} (l1 l2 : List α) :
-    l1.map some = l2.map some ↔ l1 = l2 := sorry
+    l1.map some = l2.map some ↔ l1 = l2 := by
+  constructor
+  · intro h
+    induction l1 generalizing l2 with
+    | nil => cases l2 with
+      | nil => rfl
+      | cons h t => simp at h
+    | cons hd tl ih =>
+      cases l2 with
+      | nil => simp at h
+      | cons hd' tl' =>
+        simp at h
+        rw [h.1]
+        rw [ih tl' h.2]
+  · intro h; subst h; rfl
 /- HOL4:
 Theorem map_some_eq_append:
   !l1 l2 l3. (MAP SOME l1 ++ MAP SOME l2 = MAP SOME l3) ⇔ (l1 ++ l2 = l3)
 -/
 theorem map_some_eq_append {α : Type} (l1 l2 l3 : List α) :
-    l1.map some ++ l2.map some = l3.map some ↔ l1 ++ l2 = l3 := sorry
+    l1.map some ++ l2.map some = l3.map some ↔ l1 ++ l2 = l3 := by
+  rw [← List.map_append]; exact map_some_eq _ _
 /- HOL4:
 Theorem MAP_EQ_MAP_IMP:
    !xs ys f. (!x y. MEM x xs /\ MEM y ys /\ (f x = f y) ==> (x = y)) ==>
@@ -251,4 +266,5 @@ Theorem plus_0_I[simp]:
    $+ 0n = I
 -/
 theorem plus_0_I :
-    (fun (n : Nat) => 0 + n) = id := sorry
+    (fun (n : Nat) => 0 + n) = id := by
+  funext n; simp

@@ -111,7 +111,8 @@ Theorem unchanged_tenv[simp]:
 -/
 theorem unchanged_tenv :
     ∀ (tenv : type_env),
-      { v := tenv.v, c := tenv.c, t := tenv.t : type_env} = tenv := sorry
+      { v := tenv.v, c := tenv.c, t := tenv.t : type_env} = tenv := by
+  intro tenv; rfl
 /- HOL4:
 Theorem extend_dec_tenv_assoc[simp]:
    !tenv1 tenv2 tenv3.
@@ -122,31 +123,36 @@ Theorem extend_dec_tenv_assoc[simp]:
 theorem extend_dec_tenv_assoc_thm :
     ∀ (tenv1 tenv2 tenv3 : type_env),
       extend_dec_tenv tenv1 (extend_dec_tenv tenv2 tenv3) =
-      extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3 := sorry
+      extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3 := by
+  intros _ _ _; simp [extend_dec_tenv, nsAppend_assoc]
 /- HOL4:
 Theorem tenv_val_ok_nsEmpty[simp]:
    tenv_val_ok nsEmpty
 -/
 theorem tenv_val_ok_nsEmpty :
-    tenv_val_ok nsEmpty := sorry
+    tenv_val_ok nsEmpty := by
+  unfold tenv_val_ok; exact nsAll_nsEmpty _
 /- HOL4:
 Theorem tenv_ctor_ok_nsEmpty[simp]:
    tenv_ctor_ok nsEmpty
 -/
 theorem tenv_ctor_ok_nsEmpty :
-    tenv_ctor_ok nsEmpty := sorry
+    tenv_ctor_ok nsEmpty := by
+  unfold tenv_ctor_ok; exact nsAll_nsEmpty _
 /- HOL4:
 Theorem tenv_abbrev_ok_nsEmpty[simp]:
    tenv_abbrev_ok nsEmpty
 -/
 theorem tenv_abbrev_ok_nsEmpty :
-    tenv_abbrev_ok nsEmpty := sorry
+    tenv_abbrev_ok nsEmpty := by
+  unfold tenv_abbrev_ok; exact nsAll_nsEmpty _
 /- HOL4:
 Theorem tenv_ok_empty[simp]:
    tenv_ok <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>
 -/
 theorem tenv_ok_empty :
-    tenv_ok { v := nsEmpty, c := nsEmpty, t := nsEmpty } := sorry
+    tenv_ok { v := nsEmpty, c := nsEmpty, t := nsEmpty } := by
+  exact ⟨tenv_val_ok_nsEmpty, tenv_ctor_ok_nsEmpty, tenv_abbrev_ok_nsEmpty⟩
 /- HOL4:
 Theorem check_freevars_add:
  (!tvs tvs' t. check_freevars tvs tvs' t ⇒
@@ -948,7 +954,20 @@ Theorem type_es_list_rel:
 -/
 theorem type_es_list_rel :
     ∀ (es : List exp) (ts : List sem_t) (tenv : type_env) (tenvE : tenv_val_exp),
-      type_es tenv tenvE es ts = LIST_REL (type_e tenv tenvE) es ts := sorry
+      type_es tenv tenvE es ts = LIST_REL (type_e tenv tenvE) es ts := by
+  intros es ts tenv tenvE
+  apply propext
+  constructor
+  · intro h
+    induction es generalizing ts with
+    | nil => cases h; constructor
+    | cons e es ih =>
+      cases h; rename_i t ts' hte htes
+      exact LIST_REL.cons _ _ _ _ hte (ih ts' htes)
+  · intro h
+    induction h with
+    | nil => constructor
+    | cons _ _ _ _ hte _ ih => exact type_es.cons _ _ _ _ _ _ hte ih
 /- HOL4:
 Theorem type_es_length:
  ∀tenv tenvE es ts.
@@ -956,7 +975,19 @@ Theorem type_es_length:
 -/
 theorem type_es_length :
     ∀ (tenv : type_env) (tenvE : tenv_val_exp) (es : List exp) (ts : List sem_t),
-      type_es tenv tenvE es ts → es.length = ts.length := sorry
+      type_es tenv tenvE es ts → es.length = ts.length := by
+  intros tenv tenvE es
+  induction es with
+  | nil =>
+    intros ts h
+    cases h with | nil => rfl
+  | cons e es ih =>
+    intros ts h
+    cases h
+    rename_i t' ts' _ htes
+    show (e :: es).length = (t' :: ts').length
+    simp
+    exact ih _ htes
 /- HOL4:
 Theorem tenv_val_exp_ok_bvl_funs:
    !funs env tenv bindings tenv_val tenvE.

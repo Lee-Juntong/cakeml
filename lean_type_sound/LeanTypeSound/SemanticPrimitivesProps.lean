@@ -177,22 +177,23 @@ def shift_lookup_64 : shift → word64 → Nat → word64
    (env:'v sem_env) with v := env.v = env
 -/
 theorem with_same_v (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by cases env; rfl
 /- HOL4: Theorem unchanged_env[simp]:
    !(env : 'a sem_env). <| v := env.v; c := env.c |> = env
 -/
 theorem unchanged_env (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by cases env; rfl
 /- HOL4: Theorem with_same_clock:
    (st:'ffi state) with clock := st.clock = st
 -/
 theorem with_same_clock {ffi : Type} (st : cml_state ffi) :
-    { st with clock := st.clock } = st := sorry
+    { st with clock := st.clock } = st := rfl
 /- HOL4: Theorem Boolv_11[simp]:
    Boolv b1 = Boolv b2 <=> (b1 = b2)
 -/
 theorem Boolv_11 (b1 b2 : Bool) :
-    Boolv b1 = Boolv b2 ↔ b1 = b2 := sorry
+    Boolv b1 = Boolv b2 ↔ b1 = b2 := by
+  cases b1 <;> cases b2 <;> simp [Boolv] <;> decide
 /- HOL4: Theorem extend_dec_env_assoc[simp]:
    !env1 env2 env3.
     extend_dec_env env1 (extend_dec_env env2 env3)
@@ -200,7 +201,13 @@ theorem Boolv_11 (b1 b2 : Bool) :
 -/
 theorem extend_dec_env_assoc (env1 env2 env3 : sem_env) :
     extend_dec_env env1 (extend_dec_env env2 env3) =
-    extend_dec_env (extend_dec_env env1 env2) env3 := sorry
+    extend_dec_env (extend_dec_env env1 env2) env3 := by
+  cases env1 with | mk a b =>
+  cases env2 with | mk c d =>
+  cases env3 with | mk e f =>
+  show sem_env.mk (nsAppend a (nsAppend c e)) (nsAppend b (nsAppend d f)) =
+       sem_env.mk (nsAppend (nsAppend a c) e) (nsAppend (nsAppend b d) f)
+  rw [nsAppend_assoc, nsAppend_assoc]
 /- HOL4: Theorem pat_bindings_accum:
    (!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) /\
    (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)
@@ -560,4 +567,13 @@ theorem prim_type_cases (ty : prim_type) :
     ty = .StrT ∨
     ty = .WordT .W8 ∨
     ty = .WordT .W64 ∨
-    ty = .Float64T := sorry
+    ty = .Float64T := by
+  cases ty with
+  | BoolT => left; rfl
+  | IntT => right; left; rfl
+  | CharT => right; right; left; rfl
+  | StrT => right; right; right; left; rfl
+  | WordT w => cases w with
+    | W8 => right; right; right; right; left; rfl
+    | W64 => right; right; right; right; right; left; rfl
+  | Float64T => right; right; right; right; right; right; rfl
