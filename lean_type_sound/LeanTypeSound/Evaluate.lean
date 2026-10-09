@@ -298,4 +298,8 @@ Theorem fix_clock_do_eval_res:
 -/
 theorem fix_clock_do_eval_res {ffi : Type}
     (s : cml_state ffi) (vs : List v) :
-    fix_clock s (do_eval_res vs s) = do_eval_res vs s := sorry
+    fix_clock s (do_eval_res vs s) = do_eval_res vs s := by
+  simp [fix_clock, do_eval_res]
+  cases do_eval vs s.eval_state_field with
+  | none => simp
+  | some p => obtain ⟨_, _, _⟩ := p; simp

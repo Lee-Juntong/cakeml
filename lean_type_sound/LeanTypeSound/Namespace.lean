@@ -208,5 +208,10 @@ End
 def nsMap {m n v w : Type} (f : v → w) : «namespace» m n v → «namespace» m n w
   | .Bind vals mods =>
     .Bind (vals.map fun (name, x) => (name, f x))
-          (mods.map fun (mn, e) => (mn, nsMap f e))
-  decreasing_by sorry
+          (mods.attach.map fun ⟨(mn, e), _⟩ => (mn, nsMap f e))
+  decreasing_by
+    rename_i h
+    have h2 := List.sizeOf_lt_of_mem h
+    simp at h2
+    simp only [«namespace».Bind.sizeOf_spec]
+    omega
