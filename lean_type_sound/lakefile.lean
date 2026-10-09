@@ -8,4 +8,4 @@ package lean_type_sound where
 lean_lib LeanTypeSound where
   roots := #[`LeanTypeSound]
 
-require "leanprover-community" / mathlib @ git "v4.29.1"
+require "leanprover-community" / mathlib @ git "v4.28.0"
