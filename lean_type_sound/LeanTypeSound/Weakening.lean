@@ -71,7 +71,10 @@ Theorem weakS_refl:
    !tenvS. weakS tenvS tenvS
 -/
 theorem weakS_refl :
-    ∀ (tenvS : tenv_store), weakS tenvS tenvS := sorry
+    ∀ (tenvS : tenv_store), weakS tenvS tenvS := by
+  intro tenvS
+  unfold weakS Finmap.SUBMAP
+  intros _ _ h; exact h
 /- HOL4:
 Theorem weak_tenvE_freevars[local]:
   !tenv tenv' tvs t.
@@ -229,7 +232,7 @@ Theorem gt_0[local]:
   !x:num.x ≥ 0
 -/
 theorem gt_0 :
-    ∀ (x : Nat), x ≥ 0 := sorry
+    ∀ (x : Nat), x ≥ 0 := fun _ => Nat.zero_le _
 /- HOL4:
 Theorem weak_ctMap_lookup[local]:
   ∀ctMap ctMap' tvs ts stamp.
@@ -241,19 +244,24 @@ Theorem weak_ctMap_lookup[local]:
 theorem weak_ctMap_lookup :
     ∀ (cm cm' : ctMap) (tvs : List tvarN) (ts : List sem_t × type_ident) (stmp : stamp),
       weakCT cm' cm ∧ Finmap.FLOOKUP cm stmp = some (tvs, ts) →
-      Finmap.FLOOKUP cm' stmp = some (tvs, ts) := sorry
+      Finmap.FLOOKUP cm' stmp = some (tvs, ts) := by
+  intro cm cm' tvs ts stmp ⟨hw, hl⟩
+  exact hw _ _ hl
 /- HOL4:
 Theorem weakCT_refl:
  !ctMap. weakCT ctMap ctMap
 -/
 theorem weakCT_refl :
-    ∀ (cm : ctMap), weakCT cm cm := sorry
+    ∀ (cm : ctMap), weakCT cm cm := by
+  intro cm k v h; exact h
 /- HOL4:
 Theorem weakCT_trans:
  weakCT C1 C2 ∧ weakCT C2 C3 ⇒ weakCT C1 C3
 -/
 theorem weakCT_trans :
-    ∀ (C1 C2 C3 : ctMap), weakCT C1 C2 ∧ weakCT C2 C3 → weakCT C1 C3 := sorry
+    ∀ (C1 C2 C3 : ctMap), weakCT C1 C2 ∧ weakCT C2 C3 → weakCT C1 C3 := by
+  intro C1 C2 C3 ⟨h12, h23⟩ k v h3
+  exact h12 _ _ (h23 _ _ h3)
 /- HOL4:
 Theorem disjoint_env_weakCT:
  !ctMap ctMap'.
