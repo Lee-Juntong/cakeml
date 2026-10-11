@@ -16,7 +16,7 @@ End
 inductive ffi_outcome where
   | FFI_failed
   | FFI_diverged
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -35,7 +35,7 @@ End
 inductive shmem_op where
   | MappedRead
   | MappedWrite
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -45,7 +45,7 @@ End
 inductive ffiname where
   | ExtCall : mlstring → ffiname
   | SharedMem : shmem_op → ffiname
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Type oracle_function = ":'ffi -> word8 list -> word8 list -> 'ffi oracle_result"
@@ -64,7 +64,7 @@ End
 -/
 inductive io_event where
   | IO_event : ffiname → List word8 → List (word8 × word8) → io_event
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -73,7 +73,7 @@ End
 -/
 inductive final_event where
   | Final_event : ffiname → List word8 → List word8 → ffi_outcome → final_event
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -129,7 +129,7 @@ inductive outcome where
   | Success
   | Resource_limit_hit
   | FFI_outcome : final_event → outcome
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:

@@ -3,6 +3,7 @@
   Various basic properties of the semantic primitives.
 -/
 import LeanTypeSound.HOL4Prelude
+import LeanTypeSound.Tactics
 import LeanTypeSound.Ast
 import LeanTypeSound.Namespace
 import LeanTypeSound.Ffi
@@ -177,22 +178,22 @@ def shift_lookup_64 : shift → word64 → Nat → word64
    (env:'v sem_env) with v := env.v = env
 -/
 theorem with_same_v (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by cases env; rfl
 /- HOL4: Theorem unchanged_env[simp]:
    !(env : 'a sem_env). <| v := env.v; c := env.c |> = env
 -/
 theorem unchanged_env (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by cases env; rfl
 /- HOL4: Theorem with_same_clock:
    (st:'ffi state) with clock := st.clock = st
 -/
 theorem with_same_clock {ffi : Type} (st : cml_state ffi) :
-    { st with clock := st.clock } = st := sorry
+    { st with clock := st.clock } = st := rfl
 /- HOL4: Theorem Boolv_11[simp]:
    Boolv b1 = Boolv b2 <=> (b1 = b2)
 -/
 theorem Boolv_11 (b1 b2 : Bool) :
-    Boolv b1 = Boolv b2 ↔ b1 = b2 := sorry
+    Boolv b1 = Boolv b2 ↔ b1 = b2 := by cases b1 <;> cases b2 <;> simp [Boolv]
 /- HOL4: Theorem extend_dec_env_assoc[simp]:
    !env1 env2 env3.
     extend_dec_env env1 (extend_dec_env env2 env3)
@@ -200,7 +201,7 @@ theorem Boolv_11 (b1 b2 : Bool) :
 -/
 theorem extend_dec_env_assoc (env1 env2 env3 : sem_env) :
     extend_dec_env env1 (extend_dec_env env2 env3) =
-    extend_dec_env (extend_dec_env env1 env2) env3 := sorry
+    extend_dec_env (extend_dec_env env1 env2) env3 := by simp [extend_dec_env, sem_env.v_, sem_env.c, nsAppend_assoc]
 /- HOL4: Theorem pat_bindings_accum:
    (!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) /\
    (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)
@@ -209,11 +210,32 @@ theorem pat_bindings_accum :
     (∀ (p : pat) (acc : List varN),
       pat_bindings p acc = pat_bindings p [] ++ acc) ∧
     (∀ (ps : List pat) (acc : List varN),
-      pats_bindings ps acc = pats_bindings ps [] ++ acc) := sorry
+      pats_bindings ps acc = pats_bindings ps [] ++ acc) := by
+  have key : ∀ p : pat, (∀ acc, pat_bindings p acc = pat_bindings p [] ++ acc) := by
+    intro p
+    induction p using pat.rec (motive_2 := fun ps =>
+      ∀ acc, pats_bindings ps acc = pats_bindings ps [] ++ acc) with
+    | Pany => intro acc; simp [pat_bindings]
+    | Pvar x => intro acc; simp [pat_bindings]
+    | Plit l => intro acc; simp [pat_bindings]
+    | Pcon cn ps ih => intro acc; simp only [pat_bindings]; exact ih acc
+    | Pref p ih => intro acc; simp only [pat_bindings]; exact ih acc
+    | Pas p i ih => intro acc; simp only [pat_bindings]; rw [ih, ih [i]]; simp
+    | Ptannot p t ih => intro acc; simp only [pat_bindings]; exact ih acc
+    | nil => simp [pats_bindings]
+    | cons p ps ihp ihps =>
+      rename_i acc; simp only [pats_bindings]; rw [ihps, ihps (pat_bindings p []), ihp acc]; simp
+  refine ⟨key, ?_⟩
+  intro ps
+  induction ps with
+  | nil => intro acc; simp [pats_bindings]
+  | cons p ps ih =>
+    intro acc; simp only [pats_bindings]; rw [ih, ih (pat_bindings p []), key p acc]; simp
 /- HOL4: Theorem do_app_cases:
    Computed by HOL4 from do_app_def (SIMP_CONV with the case_eq theorems,
    COND_elim_ss, and PULL_EXISTS). Written here as that case expansion. -/
 set_option linter.deprecated false in
+set_option maxHeartbeats 4000000 in
 theorem do_app_cases {ffi : Type} :
     ∀ (s : List (store_v v)) (t : ffi_state ffi) (op_ : op) (vs : List v)
       (st' : List (store_v v) × ffi_state ffi) (r : result v v),
@@ -510,7 +532,35 @@ theorem do_app_cases {ffi : Type} :
       -- Test
       (∃ test_ test_ty v1 v2 b, op_ = .Test test_ test_ty ∧ vs = [v1, v2] ∧
         do_test test_ test_ty v1 v2 = .Eq_val b ∧
-        st' = (s, t) ∧ r = .Rval (Boolv b))) := sorry
+        st' = (s, t) ∧ r = .Rval (Boolv b))) := by
+  intro s t op_ vs st' r
+  constructor
+  · intro h
+    cases op_ <;> simp only [reduceCtorEq, false_and, exists_const, exists_false,
+        false_or, or_false, true_and, op.Shift.injEq, op.Arith.injEq, op.FromTo.injEq, op.Test.injEq,
+        op.FFI.injEq, op.ThunkOp.injEq] <;> unfold do_app at h
+    all_goals (repeat' split at h)
+    all_goals (try simp only [Option.some.injEq, Prod.mk.injEq, reduceCtorEq] at h)
+    all_goals split_ands_hyps
+    all_goals subst_vars
+    all_goals (try simp_all [and_assoc])
+    all_goals (repeat' split at h)
+    all_goals (try simp only [Option.some.injEq, Prod.mk.injEq, reduceCtorEq] at h)
+    all_goals split_ands_hyps
+    all_goals subst_vars
+    all_goals (try simp_all [and_assoc])
+    all_goals (repeat' split at h)
+    all_goals (try simp only [Option.some.injEq, Prod.mk.injEq, reduceCtorEq] at h)
+    all_goals split_ands_hyps
+    all_goals subst_vars
+    all_goals (try simp_all [and_assoc])
+    all_goals (try (cases ‹Bool› <;> simp; done))
+  · simp only [or_imp, forall_exists_index, and_imp]
+    repeat' apply And.intro
+    all_goals intros
+    all_goals subst_vars
+    all_goals (try simp_all [do_app])
+    all_goals rw [if_neg (by omega), if_neg (by omega)]
 /- HOL4: Theorem build_rec_env_merge:
    !funs funs' env env'.
     build_rec_env funs env env' =
@@ -520,7 +570,18 @@ theorem build_rec_env_merge
     (funs : List (varN × varN × exp)) (env : sem_env)
     (env' : «namespace» modN varN v) :
     build_rec_env funs env env' =
-    nsAppend (alist_to_ns (funs.map (fun (f, _, _) => (f, v.Recclosure env funs f)))) env' := sorry
+    nsAppend (alist_to_ns (funs.map (fun (f, _, _) => (f, v.Recclosure env funs f)))) env' := by
+  have key : ∀ l : List (varN × varN × exp),
+      l.foldr (fun (f, _, _) env' => nsBind f (v.Recclosure env funs f) env') env' =
+      (l.map (fun (f, _, _) => (f, v.Recclosure env funs f))).foldr
+        (fun (p : varN × v) e => nsBind p.1 p.2 e) env' := by
+    intro l
+    induction l with
+    | nil => rfl
+    | cons f l ih => obtain ⟨a, b, c⟩ := f; simp only [List.foldr_cons, List.map_cons]; rw [ih]
+  rw [nsAppend_to_nsBindList]
+  exact key funs
+
 /- HOL4: Theorem do_con_check_build_conv:
    !tenvC cn vs l.
     do_con_check tenvC cn l ==> ?v. build_conv tenvC cn vs = SOME v
@@ -529,26 +590,78 @@ theorem do_con_check_build_conv
     (tenvC : env_ctor) (cn : Option (cml_id modN conN))
     (vs : List v) (l : Nat) :
     do_con_check tenvC cn l = true →
-    ∃ val, build_conv tenvC cn vs = some val := sorry
+    ∃ val, build_conv tenvC cn vs = some val := by
+  intro h
+  cases cn with
+  | none => exact ⟨_, rfl⟩
+  | some id_ =>
+    simp only [do_con_check] at h
+    simp only [build_conv]
+    split
+    · rename_i heq; simp [heq] at h
+    · exact ⟨_, rfl⟩
 /- HOL4: Theorem FV_pes_MAP:
    FV_pes pes = BIGUNION (IMAGE (\(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))
 -/
 theorem FV_pes_MAP (pes : List (pat × exp)) :
     FV_pes pes =
     Set.sUnion (Set.image (fun pe => FV pe.2 \ Set.image cml_id.Short (fun x => x ∈ pat_bindings pe.1 []))
-      (fun pe => pe ∈ pes)) := sorry
+      (fun pe => pe ∈ pes)) := by
+  funext x
+  induction pes with
+  | nil =>
+    simp only [FV_pes]
+    apply propext; constructor
+    · intro h; exact h.elim
+    · rintro ⟨s, ⟨a, ha, _⟩, _⟩; exact (List.not_mem_nil ha).elim
+  | cons pe pes ih =>
+    obtain ⟨p, e⟩ := pe
+    simp only [FV_pes]
+    show (_ ∨ FV_pes pes x) = _
+    rw [ih]
+    apply propext; constructor
+    · rintro (h | ⟨s, ⟨a, ha, rfl⟩, hs⟩)
+      · exact ⟨_, ⟨(p, e), List.mem_cons_self, rfl⟩, h⟩
+      · exact ⟨_, ⟨a, List.mem_cons_of_mem _ ha, rfl⟩, hs⟩
+    · rintro ⟨s, ⟨a, ha, rfl⟩, hs⟩
+      rcases List.mem_cons.1 ha with rfl | ha
+      · exact Or.inl hs
+      · exact Or.inr ⟨_, ⟨a, ha, rfl⟩, hs⟩
 /- HOL4: Theorem FV_defs_MAP:
    !ls. FV_defs ls = BIGUNION (IMAGE (\(f,x,e). FV e DIFF {Short x}) (set ls))
 -/
 theorem FV_defs_MAP (ls : List (varN × varN × exp)) :
     FV_defs ls =
     Set.sUnion (Set.image (fun fxe => FV fxe.2.2 \ {cml_id.Short fxe.2.1})
-      (fun fxe => fxe ∈ ls)) := sorry
+      (fun fxe => fxe ∈ ls)) := by
+  funext x
+  induction ls with
+  | nil =>
+    simp only [FV_defs]
+    apply propext; constructor
+    · intro h; exact h.elim
+    · rintro ⟨s, ⟨a, ha, _⟩, _⟩; exact (List.not_mem_nil ha).elim
+  | cons d ls ih =>
+    obtain ⟨f, y, e⟩ := d
+    simp only [FV_defs]
+    show (_ ∨ FV_defs ls x) = _
+    rw [ih]
+    apply propext; constructor
+    · rintro (h | ⟨s, ⟨a, ha, rfl⟩, hs⟩)
+      · exact ⟨_, ⟨(f, y, e), List.mem_cons_self, rfl⟩, h⟩
+      · exact ⟨_, ⟨a, List.mem_cons_of_mem _ ha, rfl⟩, hs⟩
+    · rintro ⟨s, ⟨a, ha, rfl⟩, hs⟩
+      rcases List.mem_cons.1 ha with rfl | ha
+      · exact Or.inl hs
+      · exact Or.inr ⟨_, ⟨a, ha, rfl⟩, hs⟩
 /- HOL4: Theorem concrete_v_list[simp]:
    !xs. concrete_v_list xs = EVERY concrete_v xs
 -/
 theorem concrete_v_list_thm (xs : List v) :
-    concrete_v_list xs = xs.all concrete_v := sorry
+    concrete_v_list xs = xs.all concrete_v := by
+  induction xs with
+  | nil => simp [concrete_v_list]
+  | cons x xs ih => simp [concrete_v_list, ih]
 /- HOL4: Theorem prim_type_cases:
    !ty. ty = BoolT \/ ty = IntT \/ ty = CharT \/ ty = StrT \/
         ty = WordT W8 \/ ty = WordT W64 \/ ty = Float64T
@@ -560,4 +673,7 @@ theorem prim_type_cases (ty : prim_type) :
     ty = .StrT ∨
     ty = .WordT .W8 ∨
     ty = .WordT .W64 ∨
-    ty = .Float64T := sorry
+    ty = .Float64T := by
+  cases ty with
+  | WordT w => cases w <;> simp
+  | _ => simp

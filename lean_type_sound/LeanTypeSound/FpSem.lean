@@ -18,7 +18,7 @@ inductive fp_cmp where
   | FP_Greater
   | FP_GreaterEqual
   | FP_Equal
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -29,7 +29,7 @@ inductive fp_uop where
   | FP_Abs
   | FP_Neg
   | FP_Sqrt
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -41,7 +41,7 @@ inductive fp_bop where
   | FP_Sub
   | FP_Mul
   | FP_Div
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -50,7 +50,7 @@ End
 -/
 inductive fp_top where
   | FP_Fma
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Definition fp_cmp_def:

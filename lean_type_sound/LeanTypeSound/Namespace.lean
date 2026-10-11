@@ -20,7 +20,7 @@ End
 inductive cml_id (m n : Type) where
   | Short : n → cml_id m n
   | Long : m → cml_id m n → cml_id m n
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Definition mk_id_def:
@@ -208,5 +208,10 @@ End
 def nsMap {m n v w : Type} (f : v → w) : «namespace» m n v → «namespace» m n w
   | .Bind vals mods =>
     .Bind (vals.map fun (name, x) => (name, f x))
-          (mods.map fun (mn, e) => (mn, nsMap f e))
-  decreasing_by sorry
+          (mods.map fun p => (p.1, nsMap f p.2))
+  decreasing_by
+    rename_i h
+    have := List.sizeOf_lt_of_mem h
+    cases p
+    simp_all
+    omega

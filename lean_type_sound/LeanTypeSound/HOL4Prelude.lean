@@ -338,11 +338,12 @@ def FINITE {α : Type} (s : Set α) : Prop :=
   ∃ l : List α, ∀ a, s a ↔ a ∈ l
 
 /- HOL4: CARD — cardinality of a finite set. Defined classically: when
-   `FINITE s`, returns the length of the de-duplicated enumerating list;
-   otherwise 0. -/
+   `s` is enumerated by a duplicate-free list, returns the length of such a
+   list (all such lists are permutations of each other, so this is
+   well-defined); otherwise 0. -/
 open Classical in
 noncomputable def CARD {α : Type} (s : Set α) : Nat :=
-  if h : FINITE s then
+  if h : ∃ l : List α, l.Nodup ∧ ∀ a, s a ↔ a ∈ l then
     (Classical.choose h).length
   else
     0
@@ -461,7 +462,7 @@ inductive ordering where
   | LESS
   | EQUAL
   | GREATER
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 -- ============================================================
 -- Char operations

@@ -20,7 +20,7 @@ End
 inductive stamp where
   | TypeStamp : conN → Nat → stamp
   | ExnStamp : Nat → stamp
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 -- v and sem_env are mutually recursive
@@ -141,7 +141,7 @@ inductive abort where
   | Rtype_error : abort
   | Rtimeout_error : abort
   | Rffi_error : final_event → abort
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -151,7 +151,7 @@ End
 inductive error_result (α : Type) where
   | Rraise : α → error_result α
   | Rabort : abort → error_result α
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -161,7 +161,7 @@ End
 inductive result (α β : Type) where
   | Rval : α → result α β
   | Rerr : error_result β → result α β
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 -- Store types
 /- HOL4:
@@ -174,7 +174,7 @@ inductive store_v (α : Type) where
   | W8array : List word8 → store_v α
   | Varray : List α → store_v α
   | Thunk : thunk_mode → α → store_v α
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 def store_v_same_type {α : Type} : store_v α → store_v α → Bool
   | .Refv _, .Refv _ => true
@@ -247,7 +247,7 @@ inductive match_result (α : Type) where
   | No_match : match_result α
   | Match_type_error : match_result α
   | Match : α → match_result α
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 -- Constructor operations
 def do_con_check (cenv : env_ctor) (n_opt : Option (cml_id modN conN)) (l : Nat) : Bool :=
@@ -330,8 +330,6 @@ def pmatch (envC : env_ctor) (s : store v) : pat → v → alist varN v →
   | .Pas p i, v', env => pmatch envC s p v' ((i, v') :: env)
   | .Ptannot p _, v', env => pmatch envC s p v' env
   | _, _, _ => .Match_type_error
-  termination_by 0
-  decreasing_by all_goals sorry
 
 def pmatch_list (envC : env_ctor) (s : store v) :
     List pat → List v → alist varN v → match_result (alist varN v)
@@ -346,8 +344,6 @@ def pmatch_list (envC : env_ctor) (s : store v) :
     | .Match_type_error => .Match_type_error
     | .Match env' => pmatch_list envC s ps vs env'
   | _, _, _ => .Match_type_error
-  termination_by 0
-  decreasing_by all_goals sorry
 end
 
 def can_pmatch_all (envC : env_ctor) (refs : store v) : List pat → v → Bool
@@ -374,7 +370,7 @@ End
 inductive eq_result where
   | Eq_val : Bool → eq_result
   | Eq_type_error : eq_result
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 mutual
 def do_eq : v → v → eq_result
@@ -394,8 +390,6 @@ def do_eq : v → v → eq_result
   | .Recclosure _ _ _, .Recclosure _ _ _ => .Eq_val true
   | .Env _ (gen1, id1), .Env _ (gen2, id2) => .Eq_val (gen1 == gen2 && id1 == id2)
   | _, _ => .Eq_type_error
-  termination_by 0
-  decreasing_by all_goals sorry
 
 def do_eq_list : List v → List v → eq_result
   | [], [] => .Eq_val true
@@ -404,8 +398,6 @@ def do_eq_list : List v → List v → eq_result
     | .Eq_val r => if !r then .Eq_val false else do_eq_list vs1 vs2
     | .Eq_type_error => .Eq_type_error
   | _, _ => .Eq_val false
-  termination_by 0
-  decreasing_by all_goals sorry
 end
 
 -- Function application
@@ -433,8 +425,6 @@ def v_to_list : v → Option (List v)
       | some vs => some (v1 :: vs)
     else none
   | _ => none
-  termination_by 0
-  decreasing_by all_goals sorry
 
 def list_to_v : List v → v
   | [] => .Conv (some (.TypeStamp (mlstring.strlit "[]") list_type_num)) []
@@ -450,8 +440,6 @@ def v_to_char_list : v → Option (List Char)
       | some cs => some (c :: cs)
     else none
   | _ => none
-  termination_by 0
-  decreasing_by all_goals sorry
 
 def vs_to_string : List v → Option mlstring
   | [] => some (mlstring.strlit "")
@@ -764,14 +752,10 @@ def concrete_v : v → Bool
   | .Conv _ vs => concrete_v_list vs
   | .Vectorv vs => concrete_v_list vs
   | _ => false
-  termination_by 0
-  decreasing_by all_goals sorry
 
 def concrete_v_list : List v → Bool
   | [] => true
   | val_ :: vs => concrete_v val_ && concrete_v_list vs
-  termination_by 0
-  decreasing_by all_goals sorry
 end
 
 /- HOL4:

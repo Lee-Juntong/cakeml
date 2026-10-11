@@ -14,7 +14,7 @@ inductive locn where
   | UNKNOWNpt : locn
   | EOFpt : locn
   | POSN : Nat → Nat → locn
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Definition locnrow_def:
@@ -58,4 +58,4 @@ End
 -/
 inductive locs where
   | Locs : locn → locn → locs
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited

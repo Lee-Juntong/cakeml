@@ -34,7 +34,7 @@ inductive lit where
   | Word8 : word8 → lit
   | Word64 : word64 → lit
   | Float64 : word64 → lit
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -43,7 +43,7 @@ End
 -/
 inductive shift where
   | Lsl | Lsr | Asr | Ror
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -52,7 +52,7 @@ End
 -/
 inductive arith where
   | Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not | Abs | Sqrt | FMA
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -61,7 +61,7 @@ End
 -/
 inductive word_size where
   | W8 | W64
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -70,7 +70,7 @@ End
 -/
 inductive thunk_mode where
   | Evaluated | NotEvaluated
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -81,7 +81,7 @@ inductive thunk_op where
   | AllocThunk : thunk_mode → thunk_op
   | UpdateThunk : thunk_mode → thunk_op
   | ForceThunk : thunk_op
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -90,7 +90,7 @@ End
 -/
 inductive opb where
   | Lt | Gt | Leq | Geq
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -101,7 +101,7 @@ inductive test where
   | Equal : test
   | Compare : opb → test
   | AltCompare : opb → test
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -112,7 +112,7 @@ inductive prim_type where
   | BoolT | IntT | CharT | StrT
   | WordT : word_size → prim_type
   | Float64T
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -171,7 +171,7 @@ inductive op where
   | FFI : mlstring → op
   | Eval : op
   | Env_id : op
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -180,7 +180,7 @@ End
 -/
 inductive op_class where
   | EvalOp | FunApp | Force | Simple
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Definition getOpClass_def[simp]:
@@ -231,7 +231,7 @@ End
 -/
 inductive lop where
   | Andalso | Orelse
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, ReflBEq, LawfulBEq, Inhabited
 
 /- HOL4:
 Datatype:
@@ -314,19 +314,24 @@ End
 def every_exp (p : exp → Bool) : exp → Bool
   | .Raise e => p (.Raise e) && every_exp p e
   | .Handle e pes =>
-    p (.Handle e pes) && every_exp p e && pes.all fun (_, e') => every_exp p e'
+    p (.Handle e pes) && every_exp p e && pes.attach.all fun x => every_exp p x.1.2
   | .Lit l => p (.Lit l)
-  | .Con cn es => p (.Con cn es) && es.all (every_exp p)
+  | .Con cn es => p (.Con cn es) && es.attach.all fun x => every_exp p x.1
   | .Var v => p (.Var v)
   | .Fun x e => p (.Fun x e) && every_exp p e
-  | .App o es => p (.App o es) && es.all (every_exp p)
+  | .App o es => p (.App o es) && es.attach.all fun x => every_exp p x.1
   | .Log l e1 e2 => p (.Log l e1 e2) && every_exp p e1 && every_exp p e2
   | .If e1 e2 e3 => p (.If e1 e2 e3) && every_exp p e1 && every_exp p e2 && every_exp p e3
   | .Mat e pes =>
-    p (.Mat e pes) && every_exp p e && pes.all fun (_, e') => every_exp p e'
+    p (.Mat e pes) && every_exp p e && pes.attach.all fun x => every_exp p x.1.2
   | .Let x e1 e2 => p (.Let x e1 e2) && every_exp p e1 && every_exp p e2
   | .Tannot e a => p (.Tannot e a) && every_exp p e
   | .Lannot e a => p (.Lannot e a) && every_exp p e
   | .Letrec funs e =>
-    p (.Letrec funs e) && every_exp p e && funs.all fun (_, _, e') => every_exp p e'
-  decreasing_by all_goals sorry
+    p (.Letrec funs e) && every_exp p e && funs.attach.all fun x => every_exp p x.1.2.2
+  decreasing_by
+    all_goals first
+      | decreasing_tactic
+      | (have := List.sizeOf_lt_of_mem x.2; simp_all; omega)
+      | (obtain ⟨⟨a, b⟩, hx⟩ := x; have := List.sizeOf_lt_of_mem hx; simp_all; omega)
+      | (obtain ⟨⟨a, b, c⟩, hx⟩ := x; have := List.sizeOf_lt_of_mem hx; simp_all; omega)

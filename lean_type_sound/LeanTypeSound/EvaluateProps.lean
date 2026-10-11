@@ -104,19 +104,47 @@ def adj_clock {ffi : Type} (inc dec_ : Nat) (s : cml_state ffi) : cml_state ffi 
 theorem io_events_mono_trans {ffi : Type}
     {ffi1 ffi2 ffi3 : ffi_state ffi} :
     io_events_mono ffi1 ffi2 ∧ io_events_mono ffi2 ffi3 →
-    io_events_mono ffi1 ffi3 := sorry
+    io_events_mono ffi1 ffi3 := by
+  rintro ⟨⟨h1, h1'⟩, ⟨h2, h2'⟩⟩
+  rw [List.isPrefixOf_iff_prefix] at h1 h2
+  refine ⟨List.isPrefixOf_iff_prefix.mpr (h1.trans h2), fun h3 => ?_⟩
+  have e12 : ffi2.io_events = ffi1.io_events := by
+    refine (List.IsPrefix.eq_of_length h1 ?_).symm
+    have := h1.length_le; have := h2.length_le; rw [h3] at this; omega
+  have := h1' e12
+  subst this
+  exact h2' h3
 /- HOL4: Theorem call_FFI_rel_io_events_mono
    ∀s1 s2. RTC call_FFI_rel s1 s2 ⇒ io_events_mono s1 s2
 -/
 theorem call_FFI_rel_io_events_mono {ffi : Type}
     {s1 s2 : ffi_state ffi} :
-    RTC call_FFI_rel s1 s2 → io_events_mono s1 s2 := sorry
+    RTC call_FFI_rel s1 s2 → io_events_mono s1 s2 := by
+  intro h
+  induction h with
+  | refl x => exact ⟨List.isPrefixOf_iff_prefix.mpr (List.prefix_refl _), fun _ => rfl⟩
+  | step x y z hxy _ ih =>
+    refine io_events_mono_trans ⟨?_, ih⟩
+    obtain ⟨n, conf, bytes, t, hc⟩ := hxy
+    unfold call_FFI at hc
+    split at hc
+    · split at hc
+      · split at hc
+        · simp only [ffi_result.FFI_return.injEq] at hc
+          obtain ⟨rfl, -⟩ := hc
+          refine ⟨List.isPrefixOf_iff_prefix.mpr (List.prefix_append _ _), fun h => ?_⟩
+          simp at h
+        · simp at hc
+      · simp at hc
+    · simp only [ffi_result.FFI_return.injEq] at hc
+      obtain ⟨rfl, -⟩ := hc
+      exact ⟨List.isPrefixOf_iff_prefix.mpr (List.prefix_refl _), fun _ => rfl⟩
 /- HOL4: Theorem io_events_mono_refl[simp]
    io_events_mono ffi ffi
 -/
 theorem io_events_mono_refl {ffi : Type}
     (s : ffi_state ffi) :
-    io_events_mono s s := sorry
+    io_events_mono s s := ⟨List.isPrefixOf_iff_prefix.mpr (List.prefix_refl _), fun _ => rfl⟩
 /- HOL4: Theorem do_app_call_FFI_rel
    do_app (r,ffi) op vs = SOME ((r',ffi'),res) ⇒
    call_FFI_rel^* ffi ffi'
@@ -163,7 +191,15 @@ theorem is_clock_io_mono_err {ffi α β : Type}
    (case x of (a, b) => P a b) = (!a b. x = (a, b) ==> P a b)
 -/
 theorem pair_CASE_eq_forall {α β : Type} {P : α → β → Prop} {x : α × β} :
-    (match x with | (a, b) => P a b) = (∀ a b, x = (a, b) → P a b) := sorry
+    (match x with | (a, b) => P a b) = (∀ a b, x = (a, b) → P a b) := by
+  obtain ⟨a, b⟩ := x
+  apply propext
+  constructor
+  · intro h a' b' e
+    simp only [Prod.mk.injEq] at e
+    obtain ⟨rfl, rfl⟩ := e
+    exact h
+  · intro h; exact h a b rfl
 /- HOL4: Theorem is_clock_io_mono_bind
    is_clock_io_mono f s /\ (!s' r. f s = (s', r)
         ==> is_clock_io_mono (g r) s')
@@ -199,7 +235,8 @@ theorem is_clock_io_mono_check {ffi α β : Type}
    dec_clock (adj_clock 1 0 s) = s
 -/
 theorem dec_inc_clock {ffi : Type} (s : cml_state ffi) :
-    dec_clock (adj_clock 1 0 s) = s := sorry
+    dec_clock (adj_clock 1 0 s) = s := by
+  cases s; simp [dec_clock, adj_clock]
 /- HOL4: Theorem do_app_refs_length
    do_app refs_ffi op vs = SOME res ==>
    LENGTH (FST refs_ffi) <= LENGTH (FST (FST res))
@@ -262,7 +299,8 @@ theorem is_clock_io_mono_extra {ffi α β : Type}
 -/
 theorem list_result_eq_Rval {α β : Type}
     {r : result α β} {r' : List α} :
-    list_result r = .Rval r' ↔ ∃ v, r' = [v] ∧ r = .Rval v := sorry
+    list_result r = .Rval r' ↔ ∃ v, r' = [v] ∧ r = .Rval v := by
+  cases r <;> simp [list_result, eq_comm]
 /- HOL4: Theorem evaluate_length
    (∀(s:'ffi state) e p s' r. evaluate s e p = (s',Rval r) ⇒ LENGTH r = LENGTH p) ∧
    (∀(s:'ffi state) e v p er s' r. evaluate_match s e v p er = (s',Rval r) ⇒ LENGTH r = 1) ∧
@@ -308,4 +346,10 @@ theorem is_clock_io_mono_minimal {ffi α β : Type}
 theorem can_pmatch_all_EVERY
     (envC : env_ctor) (refs : store v) (ps : List pat) (val_ : v) :
     can_pmatch_all envC refs ps val_ = true ↔
-    ∀ p, p ∈ ps → pmatch envC refs p val_ [] ≠ .Match_type_error := sorry
+    ∀ p, p ∈ ps → pmatch envC refs p val_ [] ≠ .Match_type_error := by
+  induction ps with
+  | nil => simp [can_pmatch_all]
+  | cons p ps ih =>
+    simp only [can_pmatch_all, List.mem_cons, forall_eq_or_imp]
+    rw [← ih]
+    cases pmatch envC refs p val_ [] <;> simp
