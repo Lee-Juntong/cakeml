@@ -95,7 +95,14 @@ Theorem weak_tenvE_bind[local]:
 theorem weak_tenvE_bind :
     ∀ (tenvE tenvE' : tenv_val_exp) (n : mlstring) (tvs : Nat) (t : sem_t),
       weak_tenvE tenvE' tenvE →
-      weak_tenvE (.Bind_name n tvs t tenvE') (.Bind_name n tvs t tenvE) := sorry
+      weak_tenvE (.Bind_name n tvs t tenvE') (.Bind_name n tvs t tenvE) := by
+  intro tenvE tenvE' n tvs t ⟨hnum, hlook⟩
+  refine ⟨by simp [num_tvs]; exact hnum, ?_⟩
+  intro n' inc tvs' t'
+  simp [tveLookup]
+  split
+  · rfl
+  · exact hlook _ _ _ _
 /- HOL4:
 Theorem weak_tenvE_opt_bind[local]:
   !tenv tenv' n tvs t.
@@ -105,7 +112,11 @@ Theorem weak_tenvE_opt_bind[local]:
 theorem weak_tenvE_opt_bind :
     ∀ (tenvE tenvE' : tenv_val_exp) (n : Option mlstring) (tvs : Nat) (t : sem_t),
       weak_tenvE tenvE' tenvE →
-      weak_tenvE (opt_bind_name n tvs t tenvE') (opt_bind_name n tvs t tenvE) := sorry
+      weak_tenvE (opt_bind_name n tvs t tenvE') (opt_bind_name n tvs t tenvE) := by
+  intro tenvE tenvE' n tvs t hw
+  cases n with
+  | none => exact hw
+  | some n' => exact weak_tenvE_bind tenvE tenvE' n' tvs t hw
 /- HOL4:
 Theorem weak_tenvE_bind_tvar[local]:
   !tenv tenv' tvs.
@@ -115,7 +126,15 @@ Theorem weak_tenvE_bind_tvar[local]:
 theorem weak_tenvE_bind_tvar :
     ∀ (tenvE tenvE' : tenv_val_exp) (tvs : Nat),
       weak_tenvE tenvE' tenvE →
-      weak_tenvE (bind_tvar tvs tenvE') (bind_tvar tvs tenvE) := sorry
+      weak_tenvE (bind_tvar tvs tenvE') (bind_tvar tvs tenvE) := by
+  intro tenvE tenvE' tvs ⟨hnum, hlook⟩
+  unfold bind_tvar
+  split
+  · exact ⟨hnum, hlook⟩
+  · refine ⟨by simp [num_tvs]; omega, ?_⟩
+    intro n inc tvs' t
+    simp [tveLookup]
+    exact hlook _ _ _ _
 /- HOL4:
 Theorem weak_tenvE_bind_tvar2[local]:
   !tenv tenv' n tvs t.
@@ -137,7 +156,15 @@ Theorem weak_tenvE_bind_var_list[local]:
 theorem weak_tenvE_bind_var_list :
     ∀ (bindings : List (mlstring × sem_t)) (tenvE tenvE' : tenv_val_exp) (tvs : Nat),
       weak_tenvE tenvE' tenvE →
-      weak_tenvE (bind_var_list tvs bindings tenvE') (bind_var_list tvs bindings tenvE) := sorry
+      weak_tenvE (bind_var_list tvs bindings tenvE') (bind_var_list tvs bindings tenvE) := by
+  intro bindings
+  induction bindings with
+  | nil => intros _ _ _ hw; exact hw
+  | cons p rest ih =>
+    intro tenvE tenvE' tvs hw
+    obtain ⟨n_, t⟩ := p
+    simp [bind_var_list]
+    exact weak_tenvE_bind _ _ n_ tvs t (ih _ _ _ hw)
 /- HOL4:
 Theorem eLookupC_weak[local]:
   ∀cn tenv tenv' tvs ts tn.

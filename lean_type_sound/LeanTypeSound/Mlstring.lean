@@ -16,7 +16,22 @@ End
 -/
 inductive mlstring where
   | strlit : String → mlstring
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, Inhabited, DecidableEq
+
+instance mlstring.instLawfulBEq : LawfulBEq mlstring where
+  eq_of_beq {a b} h := by
+    cases a with
+    | strlit s1 =>
+      cases b with
+      | strlit s2 =>
+        have hb : s1 == s2 := h
+        have : s1 = s2 := LawfulBEq.eq_of_beq (α := String) hb
+        rw [this]
+  rfl {a} := by
+    cases a with
+    | strlit s =>
+      show (s == s) = true
+      exact BEq.rfl
 
 /- HOL4:
 Definition implode_def:

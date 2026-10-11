@@ -227,7 +227,15 @@ theorem nsLookup_nsAppend_some {m n v : Type} [BEq m] [LawfulBEq m] [BEq n] [Law
 /- HOL4: Theorem nsAppend_to_nsBindList -/
 theorem nsAppend_to_nsBindList {m n v : Type} :
     ∀ (l : List (n × v)) (e : «namespace» m n v),
-      nsAppend (alist_to_ns l) e = nsBindList l e := sorry
+      nsAppend (alist_to_ns l) e = nsBindList l e := by
+  intro l e
+  induction l with
+  | nil => cases e; rfl
+  | cons p rest ih =>
+    obtain ⟨k, val_⟩ := p
+    show nsAppend (alist_to_ns ((k, val_) :: rest)) e = _
+    rw [alist_to_ns_cons, nsAppend_nsBind, ih]
+    rfl
 /- HOL4: Theorem nsLookupMod_nsAppend_none -/
 theorem nsLookupMod_nsAppend_none {m n v : Type} [BEq m] [LawfulBEq m] :
     ∀ (e1 e2 : «namespace» m n v) (path : List m),
