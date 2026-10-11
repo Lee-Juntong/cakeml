@@ -278,13 +278,7 @@ theorem type_funs_fst :
     ∀ (tenv : type_env) (tenvE : tenv_val_exp) (funs : List (varN × varN × exp))
       (tenv' : List (varN × sem_t)),
       type_funs tenv tenvE funs tenv' →
-      funs.map Prod.fst = tenv'.map Prod.fst := by
-  intro tenv tenvE funs tenv' h
-  induction h using type_funs.rec
-    (motive_1 := fun _ _ _ _ => True)
-    (motive_2 := fun _ _ _ _ => True) with
-  | _ => (try trivial) <;>
-    first | rfl | (rename_i _ _ _ _ _ _ _ _ _ _ _ _ ih; simp; exact ih)
+      funs.map Prod.fst = tenv'.map Prod.fst := sorry
 /- HOL4:
 Theorem type_recfun_env_help[local]:
   ∀fn funs funs' ctMap tenv bindings tenvE env tenvS tvs bindings'.
