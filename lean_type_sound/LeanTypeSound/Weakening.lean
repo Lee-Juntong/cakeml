@@ -84,7 +84,9 @@ Theorem weak_tenvE_freevars[local]:
 theorem weak_tenvE_freevars :
     ∀ (tenvE tenvE' : tenv_val_exp) (tvs : List tvarN) (t : sem_t),
       weak_tenvE tenvE' tenvE ∧ check_freevars (num_tvs tenvE) tvs t →
-      check_freevars (num_tvs tenvE') tvs t := sorry
+      check_freevars (num_tvs tenvE') tvs t := by
+  intro tenvE tenvE' tvs t ⟨⟨hNum, _⟩, hcf⟩
+  exact check_freevars_add _ tvs t hcf _ hNum
 /- HOL4:
 Theorem weak_tenvE_bind[local]:
   !tenv tenv' n tvs t.
@@ -308,7 +310,16 @@ Theorem disjoint_env_weakCT:
 theorem disjoint_env_weakCT :
     ∀ (cm cm' : ctMap),
       Set.Disjoint (Finmap.FDOM cm') (Finmap.FDOM cm) →
-      weakCT (Finmap.FUNION cm' cm) cm := sorry
+      weakCT (Finmap.FUNION cm' cm) cm := by
+  intro cm cm' hDisj k val_ h
+  simp [Finmap.FUNION]
+  cases hc : cm' k with
+  | none => exact h
+  | some v' =>
+    exfalso
+    have h1 : k ∈ Finmap.FDOM cm' := by show (cm' k).isSome = true; rw [hc]; rfl
+    have h2 : k ∈ Finmap.FDOM cm := by show (cm k).isSome = true; rw [h]; rfl
+    exact hDisj k ⟨h1, h2⟩
 /- HOL4:
 Theorem type_tenv_ctor_weakening:
  !ctMap tenvC envC ctMap'.

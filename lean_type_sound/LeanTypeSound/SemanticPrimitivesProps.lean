@@ -219,7 +219,39 @@ theorem pat_bindings_accum :
     (∀ (p : pat) (acc : List varN),
       pat_bindings p acc = pat_bindings p [] ++ acc) ∧
     (∀ (ps : List pat) (acc : List varN),
-      pats_bindings ps acc = pats_bindings ps [] ++ acc) := sorry
+      pats_bindings ps acc = pats_bindings ps [] ++ acc) := by
+  have h1 : ∀ (p : pat) (acc : List varN),
+      pat_bindings p acc = pat_bindings p [] ++ acc := by
+    intro p
+    induction p using pat.recOn
+      (motive_2 := fun ps => ∀ (acc : List varN),
+        pats_bindings ps acc = pats_bindings ps [] ++ acc) with
+    | Pany => intro acc; rfl
+    | Pvar n => intro acc; rfl
+    | Plit l => intro acc; rfl
+    | Pcon cn ps ih => intro acc; show pats_bindings ps acc = _; exact ih acc
+    | Pref p ih => intro acc; show pat_bindings p acc = _; exact ih acc
+    | Pas p i ih =>
+      intro acc
+      show pat_bindings p (i :: acc) = pat_bindings p [i] ++ acc
+      rw [ih (i :: acc), ih [i]]
+      simp
+    | Ptannot p a ih => intro acc; show pat_bindings p acc = _; exact ih acc
+    | nil => intros; rfl
+    | cons p ps' ihp ihps =>
+      rename_i acc
+      show pats_bindings ps' (pat_bindings p acc) = pats_bindings ps' (pat_bindings p []) ++ acc
+      rw [ihp acc, ihps (pat_bindings p [] ++ acc), ihps (pat_bindings p [])]
+      simp
+  refine ⟨h1, ?_⟩
+  intro ps
+  induction ps with
+  | nil => intro acc; rfl
+  | cons p ps' ih =>
+    intro acc
+    show pats_bindings ps' (pat_bindings p acc) = pats_bindings ps' (pat_bindings p []) ++ acc
+    rw [h1 p acc, ih (pat_bindings p [] ++ acc), ih (pat_bindings p [])]
+    simp
 /- HOL4: Theorem do_app_cases:
    Computed by HOL4 from do_app_def (SIMP_CONV with the case_eq theorems,
    COND_elim_ss, and PULL_EXISTS). Written here as that case expansion. -/

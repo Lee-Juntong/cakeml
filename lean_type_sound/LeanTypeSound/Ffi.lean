@@ -35,7 +35,13 @@ End
 inductive shmem_op where
   | MappedRead
   | MappedWrite
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq, Inhabited, DecidableEq
+
+instance : LawfulBEq shmem_op where
+  eq_of_beq := by
+    intros a b h
+    cases a <;> cases b <;> first | rfl | (exfalso; revert h; decide)
+  rfl := by intro a; cases a <;> rfl
 
 /- HOL4:
 Datatype:
@@ -46,6 +52,21 @@ inductive ffiname where
   | ExtCall : mlstring → ffiname
   | SharedMem : shmem_op → ffiname
 deriving Repr, BEq, Inhabited
+
+instance : LawfulBEq ffiname where
+  eq_of_beq := by
+    intros a b h
+    cases a <;> cases b <;>
+      first
+      | (rename_i x y;
+         have : x = y := LawfulBEq.eq_of_beq (show _ = true from h);
+         subst this; rfl)
+      | contradiction
+  rfl := by
+    intro a
+    cases a with
+    | ExtCall s => show (s == s) = true; simp
+    | SharedMem o => show (o == o) = true; simp
 
 /- HOL4:
 Type oracle_function = ":'ffi -> word8 list -> word8 list -> 'ffi oracle_result"
@@ -65,6 +86,7 @@ End
 inductive io_event where
   | IO_event : ffiname → List word8 → List (word8 × word8) → io_event
 deriving Repr, BEq, Inhabited
+
 
 /- HOL4:
 Datatype:

@@ -278,7 +278,16 @@ theorem type_funs_fst :
     ∀ (tenv : type_env) (tenvE : tenv_val_exp) (funs : List (varN × varN × exp))
       (tenv' : List (varN × sem_t)),
       type_funs tenv tenvE funs tenv' →
-      funs.map Prod.fst = tenv'.map Prod.fst := sorry
+      funs.map Prod.fst = tenv'.map Prod.fst := by
+  intro tenv tenvE funs tenv' h
+  induction funs generalizing tenv' with
+  | nil => cases h; rfl
+  | cons hd tl ih =>
+    obtain ⟨fn, n, e⟩ := hd
+    cases h
+    rename_i t1 t2 bindings _ _ _ hTl
+    simp
+    exact ih bindings hTl
 /- HOL4:
 Theorem type_recfun_env_help[local]:
   ∀fn funs funs' ctMap tenv bindings tenvE env tenvS tvs bindings'.
@@ -512,7 +521,9 @@ Theorem do_eq_Boolv:
 -/
 theorem do_eq_Boolv :
     ∀ (b b' : Bool),
-      do_eq (Boolv b) (Boolv b') = .Eq_val (b == b') := sorry
+      do_eq (Boolv b) (Boolv b') = .Eq_val (b == b') := by
+  intro b b'
+  cases b <;> cases b' <;> simp [Boolv, do_eq, do_eq_list, ctor_same_type, same_type]
 /- HOL4:
 Theorem prim_canonical_Boolv_thm:
   (type_v tvs ctMap tenvS v Tbool ∧ ctMap_ok ctMap ∧ ctMap_has_bools ctMap ⇒
@@ -618,7 +629,9 @@ Theorem same_ctor_and_same_tid:
 theorem same_ctor_and_same_tid :
     ∀ (stamp1 stamp2 : stamp),
       same_ctor stamp1 stamp2 ∧ same_type stamp1 stamp2 →
-      stamp1 = stamp2 := sorry
+      stamp1 = stamp2 := by
+  intro s1 s2 ⟨hC, _⟩
+  simpa [same_ctor] using hC
 /- HOL4:
 Theorem pat_type_sound:
   (∀(cenv : env_ctor) st p v bindings tenv ctMap tbindings t new_tbindings tenvS tvs.

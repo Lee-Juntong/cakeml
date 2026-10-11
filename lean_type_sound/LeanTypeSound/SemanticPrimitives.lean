@@ -22,6 +22,36 @@ inductive stamp where
   | ExnStamp : Nat → stamp
 deriving Repr, BEq, Inhabited
 
+instance : LawfulBEq stamp where
+  eq_of_beq := by
+    intros a b h
+    cases a with
+    | TypeStamp cn1 n1 =>
+      cases b with
+      | TypeStamp cn2 n2 =>
+        have hp : (cn1 == cn2 && n1 == n2) = true := h
+        rw [Bool.and_eq_true] at hp
+        have h1 : cn1 = cn2 := LawfulBEq.eq_of_beq hp.1
+        have h2 : n1 = n2 := LawfulBEq.eq_of_beq hp.2
+        subst h1; subst h2; rfl
+      | ExnStamp _ => cases h
+    | ExnStamp n1 =>
+      cases b with
+      | TypeStamp _ _ => cases h
+      | ExnStamp n2 =>
+        have : n1 = n2 := LawfulBEq.eq_of_beq (show _ = true from h)
+        subst this; rfl
+  rfl := by
+    intro a
+    cases a with
+    | TypeStamp cn n =>
+      show (cn == cn && n == n) = true
+      rw [Bool.and_eq_true]
+      refine ⟨?_, ?_⟩
+      · show (cn == cn) = true; simp
+      · show (n == n) = true; simp
+    | ExnStamp n => show (n == n) = true; simp
+
 /- HOL4:
 -- v and sem_env are mutually recursive
 Datatype:

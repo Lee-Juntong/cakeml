@@ -314,7 +314,33 @@ Theorem nil_deBruijn_inc:
 theorem nil_deBruijn_inc :
     ∀ (skip tvs : Nat) (t : sem_t),
       (check_freevars skip [] t ∨ check_freevars skip [] (deBruijn_inc skip tvs t)) →
-      deBruijn_inc skip tvs t = t := sorry
+      deBruijn_inc skip tvs t = t := by
+  intro skip tvs t h
+  induction t using deBruijn_inc.induct (skip := skip) with
+  | case1 tv => simp [check_freevars, deBruijn_inc] at h
+  | case2 m hLt => simp [deBruijn_inc, hLt]
+  | case3 m hNLt =>
+    simp [deBruijn_inc, hNLt, check_freevars] at h
+    omega
+  | case4 ts tn ih =>
+    simp [deBruijn_inc, check_freevars, List.all_eq_true] at h ⊢
+    rcases h with h | h
+    · induction ts with
+      | nil => simp
+      | cons hd tl ih2 =>
+        simp
+        refine ⟨ih hd (by simp) (Or.inl (h _ (by simp))), ?_⟩
+        apply ih2
+        · intros x hx; exact ih x (by simp; right; exact hx)
+        · intros x hx; exact h x (by simp; right; exact hx)
+    · induction ts with
+      | nil => simp
+      | cons hd tl ih2 =>
+        simp
+        refine ⟨ih hd (by simp) (Or.inr (h _ (by simp))), ?_⟩
+        apply ih2
+        · intros x hx; exact ih x (by simp; right; exact hx)
+        · intros x hx; exact h x (by simp; right; exact hx)
 /- HOL4:
 Theorem deBruijn_subst_check_freevars:
  !tvs tvs' t ts n.
@@ -327,7 +353,27 @@ theorem deBruijn_subst_check_freevars :
     ∀ (tvs : Nat) (tvs' : List tvarN) (t : sem_t) (ts : List sem_t) (n : Nat),
       check_freevars tvs tvs' t ∧
       EVERY (check_freevars tvs tvs') ts →
-      check_freevars tvs tvs' (deBruijn_subst 0 ts t) := sorry
+      check_freevars tvs tvs' (deBruijn_subst 0 ts t) := by
+  intro tvs tvs' t ts _ ⟨hcf, hts⟩
+  induction t using deBruijn_inc.induct (skip := 0) with
+  | case1 tv => simp [deBruijn_subst]; exact hcf
+  | case2 m hLt => omega
+  | case3 m hNLt =>
+    simp [deBruijn_subst]
+    by_cases hLen : m < ts.length
+    · simp [hLen]
+      simp [check_freevars] at hcf
+      show check_freevars tvs tvs' ts[m - 0]!
+      rw [getElem!_pos _ _ (by simpa using hLen)]
+      show check_freevars tvs tvs' ts[m]
+      simp [EVERY, List.all_eq_true] at hts
+      exact hts _ (List.getElem_mem _)
+    · simp [hLen]
+      simp [check_freevars] at hcf ⊢; omega
+  | case4 ts' tn ih =>
+    simp [deBruijn_subst, check_freevars, List.all_eq_true] at hcf ⊢
+    intro x hx
+    exact ih x hx (hcf x hx)
 /- HOL4:
 Theorem deBruijn_subst_check_freevars2:
  !tvs tvs' t ts n tvs''.
@@ -340,7 +386,26 @@ theorem deBruijn_subst_check_freevars2 :
     ∀ (tvs : Nat) (tvs' : List tvarN) (t : sem_t) (ts : List sem_t) (n : Nat) (tvs'' : List tvarN),
       check_freevars ts.length tvs' t ∧
       EVERY (check_freevars tvs tvs') ts →
-      check_freevars tvs tvs' (deBruijn_subst 0 ts t) := sorry
+      check_freevars tvs tvs' (deBruijn_subst 0 ts t) := by
+  intro tvs tvs' t ts _ _ ⟨hcf, hts⟩
+  induction t using deBruijn_inc.induct (skip := 0) with
+  | case1 tv => simp [check_freevars, deBruijn_subst] at hcf ⊢; exact hcf
+  | case2 m hLt => omega
+  | case3 m hNLt =>
+    simp [deBruijn_subst]
+    by_cases hLen : m < ts.length
+    · simp [hLen]
+      show check_freevars tvs tvs' ts[m - 0]!
+      rw [getElem!_pos _ _ (by simpa using hLen)]
+      show check_freevars tvs tvs' ts[m]
+      simp [EVERY, List.all_eq_true] at hts
+      exact hts _ (List.getElem_mem _)
+    · simp [hLen]
+      simp [check_freevars] at hcf ⊢; omega
+  | case4 ts' tn ih =>
+    simp [deBruijn_subst, check_freevars, List.all_eq_true] at hcf ⊢
+    intro x hx
+    exact ih x hx (hcf x hx)
 /- HOL4:
 Theorem check_freevars_subst_inc:
  ∀tvs tvs2 t.
@@ -376,7 +441,27 @@ theorem check_freevars_subst :
       ∀ (tvs' : Nat) (targs : List sem_t) (tvs1 : Nat),
         tvs = targs.length + tvs' ∧
         EVERY (check_freevars (tvs1 + tvs') tvs2) targs →
-        check_freevars (tvs1 + tvs') tvs2 (deBruijn_subst 0 targs t) := sorry
+        check_freevars (tvs1 + tvs') tvs2 (deBruijn_subst 0 targs t) := by
+  intro tvs tvs2 t hcf tvs' targs tvs1 ⟨htvs, hts⟩
+  subst htvs
+  induction t using deBruijn_inc.induct (skip := 0) with
+  | case1 tv => simp [check_freevars, deBruijn_subst] at hcf ⊢; exact hcf
+  | case2 m hLt => omega
+  | case3 m hNLt =>
+    simp [deBruijn_subst]
+    by_cases hLen : m < targs.length
+    · simp [hLen]
+      show check_freevars (tvs1 + tvs') tvs2 targs[m - 0]!
+      rw [getElem!_pos _ _ (by simpa using hLen)]
+      show check_freevars (tvs1 + tvs') tvs2 targs[m]
+      simp [EVERY, List.all_eq_true] at hts
+      exact hts _ (List.getElem_mem _)
+    · simp [hLen]
+      simp [check_freevars] at hcf ⊢; omega
+  | case4 ts' tn ih =>
+    simp [deBruijn_subst, check_freevars, List.all_eq_true] at hcf ⊢
+    intro x hx
+    exact ih x hx (hcf x hx)
 /- HOL4: [local]
 Theorem type_subst_deBruijn_subst_single:
   !s t tvs tvs' ts ts' inc.
@@ -427,7 +512,36 @@ theorem check_freevars_lem :
         l = n1 + targs.length ∧
         EVERY (check_freevars tvs tvs') targs →
         check_freevars (n1 + tvs) tvs'
-          (deBruijn_subst n1 (targs.map (deBruijn_inc 0 n1)) t) := sorry
+          (deBruijn_subst n1 (targs.map (deBruijn_inc 0 n1)) t) := by
+  intro l tvs' t hcf targs n1 tvs ⟨hl, hts⟩
+  subst hl
+  induction t using deBruijn_inc.induct (skip := n1) with
+  | case1 tv => simp [check_freevars, deBruijn_subst] at hcf ⊢; exact hcf
+  | case2 m hLt =>
+    simp [deBruijn_subst, hLt]
+    simp [check_freevars]; omega
+  | case3 m hNLt =>
+    simp [deBruijn_subst, hNLt]
+    simp [check_freevars] at hcf
+    by_cases hLen : m < targs.length + n1
+    · simp [hLen]
+      have hidx : m - n1 < (targs.map (deBruijn_inc 0 n1)).length := by
+        simp; omega
+      show check_freevars (n1 + tvs) tvs' (EL (m - n1) (List.map (deBruijn_inc 0 n1) targs)) = true
+      have h2 := getElem!_pos (targs.map (deBruijn_inc 0 n1)) (m - n1) hidx
+      show check_freevars (n1 + tvs) tvs' (targs.map (deBruijn_inc 0 n1))[m - n1]! = true
+      rw [h2, List.getElem_map]
+      have := check_freevars_deBruijn_inc tvs tvs' targs[m - n1]
+      have hmem : targs[m - n1] ∈ targs := List.getElem_mem _
+      simp [EVERY, List.all_eq_true] at hts
+      exact this (hts _ hmem) n1 0
+    · simp [hLen]
+      simp [check_freevars]
+      omega
+  | case4 ts' tn ih =>
+    simp [deBruijn_subst, check_freevars, List.all_eq_true] at hcf ⊢
+    intro x hx
+    exact ih x hx (hcf x hx)
 /- HOL4:
 Theorem nil_deBruijn_subst:
  ∀skip tvs t. check_freevars skip [] t ⇒ (deBruijn_subst skip tvs t = t)
@@ -489,7 +603,36 @@ theorem type_e_subst_lem3 :
         tvs = n + targs.length ∧
         EVERY (check_freevars tvs' tvs2) targs →
         check_freevars (n + tvs') tvs2
-          (deBruijn_subst n (targs.map (deBruijn_inc 0 n)) t) := sorry
+          (deBruijn_subst n (targs.map (deBruijn_inc 0 n)) t) := by
+  intro tvs tvs2 t hcf tvs' targs n ⟨htvs, hts⟩
+  subst htvs
+  induction t using deBruijn_inc.induct (skip := n) with
+  | case1 tv => simp [check_freevars, deBruijn_subst] at hcf ⊢; exact hcf
+  | case2 m hLt =>
+    simp [deBruijn_subst, hLt]
+    simp [check_freevars]; omega
+  | case3 m hNLt =>
+    simp [deBruijn_subst, hNLt]
+    simp [check_freevars] at hcf
+    by_cases hLen : m < targs.length + n
+    · simp [hLen]
+      have hidx : m - n < (targs.map (deBruijn_inc 0 n)).length := by
+        simp; omega
+      show check_freevars (n + tvs') tvs2 (EL (m - n) (List.map (deBruijn_inc 0 n) targs)) = true
+      have h2 := getElem!_pos (targs.map (deBruijn_inc 0 n)) (m - n) hidx
+      show check_freevars (n + tvs') tvs2 (targs.map (deBruijn_inc 0 n))[m - n]! = true
+      rw [h2, List.getElem_map]
+      have := check_freevars_deBruijn_inc tvs' tvs2 targs[m - n]
+      have hmem : targs[m - n] ∈ targs := List.getElem_mem _
+      simp [EVERY, List.all_eq_true] at hts
+      exact this (hts _ hmem) n 0
+    · simp [hLen]
+      simp [check_freevars]
+      omega
+  | case4 ts' tn ih =>
+    simp [deBruijn_subst, check_freevars, List.all_eq_true] at hcf ⊢
+    intro x hx
+    exact ih x hx (hcf x hx)
 /- HOL4: [local]
 Theorem type_e_subst_lem5:
   (!t n inc n' targs.
@@ -576,7 +719,10 @@ theorem deBruijn_subst_freevars :
       skip = 0 ∧
       EVERY (check_freevars tvs []) targs ∧
       check_freevars targs.length [] t →
-      check_freevars tvs [] (deBruijn_subst skip targs t) := sorry
+      check_freevars tvs [] (deBruijn_subst skip targs t) := by
+  intro skip targs t tvs ⟨hskip, hts, hcf⟩
+  subst hskip
+  exact deBruijn_subst_check_freevars2 tvs [] t targs 0 [] ⟨hcf, hts⟩
 /- HOL4:
 Theorem tenv_abbrev_ok_lookup:
  !tenvT tn tvs t.
@@ -589,7 +735,9 @@ theorem tenv_abbrev_ok_lookup :
     ∀ (tenvT : tenv_abbrev) (tn : cml_id modN typeN) (tvs : List tvarN) (t : sem_t),
       tenv_abbrev_ok tenvT ∧
       nsLookup tenvT tn = some (tvs, t) →
-      check_freevars 0 tvs t := sorry
+      check_freevars 0 tvs t := by
+  intro tenvT tn tvs t ⟨hAll, hL⟩
+  exact hAll tn (tvs, t) hL
 /- HOL4:
 Theorem check_freevars_type_name_subst:
  !tvs t dbmax tenvT.
@@ -615,7 +763,9 @@ Theorem tenv_ctor_ok_merge[simp]:
 theorem tenv_ctor_ok_merge :
     ∀ (tenvC1 tenvC2 : tenv_ctor),
       tenv_ctor_ok tenvC1 ∧ tenv_ctor_ok tenvC2 →
-      tenv_ctor_ok (nsAppend tenvC1 tenvC2) := sorry
+      tenv_ctor_ok (nsAppend tenvC1 tenvC2) := by
+  intro tenvC1 tenvC2 ⟨h1, h2⟩
+  exact nsAll_nsAppend _ _ _ ⟨h1, h2⟩
 /- HOL4:
 Theorem tenv_ctor_ok_lookup:
    !tenvC cn tvs ts tn.
@@ -626,7 +776,9 @@ Theorem tenv_ctor_ok_lookup:
 theorem tenv_ctor_ok_lookup :
     ∀ (tenvC : tenv_ctor) (cn : cml_id modN conN) (tvs : List tvarN) (ts : List sem_t) (tn : type_ident),
       tenv_ctor_ok tenvC ∧ nsLookup tenvC cn = some (tvs, ts, tn) →
-      EVERY (check_freevars 0 tvs) ts := sorry
+      EVERY (check_freevars 0 tvs) ts := by
+  intro tenvC cn tvs ts tn ⟨hAll, hL⟩
+  exact hAll cn (tvs, ts, tn) hL
 /- HOL4:
 Theorem bind_tvar_rewrites[simp]:
    (!tvs e1 e2. db_merge (bind_tvar tvs e1) e2 = bind_tvar tvs (db_merge e1 e2)) ∧
@@ -656,13 +808,43 @@ theorem bind_tvar_rewrites :
       tenv_val_exp_ok (bind_tvar tvs e) ↔ tenv_val_exp_ok e) ∧
     (∀ (targs : List sem_t) (tvs : Nat) (e : tenv_val_exp),
       deBruijn_subst_tenvE targs (bind_tvar tvs e) =
-      bind_tvar tvs (deBruijn_subst_tenvE targs e)) := sorry
+      bind_tvar tvs (deBruijn_subst_tenvE targs e)) := by
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · intro tvs e1 e2
+    simp [bind_tvar]
+    by_cases h : tvs = 0
+    · subst h; simp
+    · rw [if_neg h, if_neg h]; simp [db_merge]
+  · intro tvs e
+    simp [bind_tvar]
+    by_cases h : tvs = 0
+    · subst h; simp [num_tvs]
+    · rw [if_neg h]; simp [num_tvs]
+  · intros; simp [num_tvs]
+  · intros; rfl
+  · rfl
+  · intro n inc tvs e
+    simp [bind_tvar]
+    by_cases h : tvs = 0
+    · subst h; simp [tveLookup]
+    · rw [if_neg h]; simp [tveLookup]
+  · intro tvs e
+    simp [bind_tvar]
+    by_cases h : tvs = 0
+    · subst h; simp
+    · rw [if_neg h]; simp [tenv_val_exp_ok]
+  · intro targs tvs e
+    simp [bind_tvar]
+    by_cases h : tvs = 0
+    · subst h; simp
+    · rw [if_neg h, if_neg h]; simp [deBruijn_subst_tenvE]
 /- HOL4:
 Theorem bind_tvar0[simp]:
  !x. bind_tvar 0 x = x
 -/
 theorem bind_tvar0 :
-    ∀ (x : tenv_val_exp), bind_tvar 0 x = x := sorry
+    ∀ (x : tenv_val_exp), bind_tvar 0 x = x := by
+  intro x; simp [bind_tvar]
 /- HOL4:
 Theorem tveLookup_subst_none:
  !n inc e.
@@ -754,7 +936,31 @@ theorem tveLookup_freevars_local :
     ∀ (e : tenv_val_exp) (n : mlstring) (inc : Nat) (t : sem_t) (tvs : Nat),
       tenv_val_exp_ok e ∧
       tveLookup n inc e = some (tvs, t) →
-      check_freevars (tvs + inc + num_tvs e) [] t := sorry
+      check_freevars (tvs + inc + num_tvs e) [] t := by
+  intro e n inc t tvs
+  induction e generalizing inc with
+  | Empty => intro ⟨_, hL⟩; simp [tveLookup] at hL
+  | Bind_tvar tvs' e' ih =>
+    intro ⟨hOk, hL⟩
+    simp [tveLookup] at hL
+    simp [tenv_val_exp_ok] at hOk
+    have := ih (inc + tvs') ⟨hOk, hL⟩
+    simp [num_tvs]
+    have hEq : tvs + (inc + tvs') + num_tvs e' = tvs + inc + (tvs' + num_tvs e') := by omega
+    rw [hEq] at this
+    exact this
+  | Bind_name n' tvs'' t' e' ih =>
+    intro ⟨hOk, hL⟩
+    simp [tveLookup] at hL
+    simp [tenv_val_exp_ok] at hOk
+    split at hL
+    · simp at hL
+      obtain ⟨htvs, hT⟩ := hL
+      subst htvs; subst hT
+      simp [num_tvs]
+      have hInc := check_freevars_deBruijn_inc _ _ _ hOk.1 inc tvs''
+      exact check_freevars_add _ _ _ hInc _ (by omega)
+    · exact ih inc ⟨hOk.2, hL⟩
 /- HOL4:
 Theorem bind_var_list_append:
  !n te1 te2 te3.
@@ -792,7 +998,19 @@ Theorem tenv_val_exp_ok_bvl:
 theorem tenv_val_exp_ok_bvl :
     ∀ (tenvE : tenv_val_exp) (env : List (mlstring × sem_t)),
       tenv_val_exp_ok tenvE ∧ EVERY (check_freevars (num_tvs tenvE) []) (env.map Prod.snd) →
-      tenv_val_exp_ok (bind_var_list 0 env tenvE) := sorry
+      tenv_val_exp_ok (bind_var_list 0 env tenvE) := by
+  intro tenvE env ⟨hOk, hEv⟩
+  induction env with
+  | nil => exact hOk
+  | cons hd tl ih =>
+    obtain ⟨name, t⟩ := hd
+    simp [EVERY, List.all_eq_true] at hEv
+    simp [bind_var_list, tenv_val_exp_ok]
+    refine ⟨?_, ih ?_⟩
+    · rw [num_tvs_bind_var_list]
+      exact hEv.1
+    · simp [EVERY, List.all_eq_true]
+      exact hEv.2
 /- HOL4:
 Theorem tveLookup_subst_some:
    ∀n e targs tvs t inc.
@@ -1006,7 +1224,15 @@ Theorem type_ps_length:
 -/
 theorem type_ps_length :
     ∀ (tvs : Nat) (tenvC : type_env) (ps : List pat) (ts : List sem_t) (tenv : List (varN × sem_t)),
-      type_ps tvs tenvC ps ts tenv → ps.length = ts.length := sorry
+      type_ps tvs tenvC ps ts tenv → ps.length = ts.length := by
+  intro tvs tenvC ps ts tenv h
+  induction ps generalizing ts tenv with
+  | nil => cases h; rfl
+  | cons hd tl ih =>
+    cases h
+    rename_i t _ ts' bs _ hTs
+    simp
+    exact ih ts' bs hTs
 /- HOL4:
 Theorem type_p_freevars:
  (!tvs tenvC p t env'.
@@ -1225,7 +1451,24 @@ theorem type_funs_Tfn :
       (bindings : List (varN × sem_t)) (tvs : Nat) (t : sem_t) (n : varN),
       type_funs tenv tenvE funs bindings ∧
       ALOOKUP bindings n = some t →
-      ∃ (t1 t2 : sem_t), t = Tfn t1 t2 ∧ check_freevars (num_tvs tenvE) [] (Tfn t1 t2) := sorry
+      ∃ (t1 t2 : sem_t), t = Tfn t1 t2 ∧ check_freevars (num_tvs tenvE) [] (Tfn t1 t2) := by
+  intro tenv tenvE funs bindings tvs t n ⟨hT, hL⟩
+  induction funs generalizing bindings with
+  | nil =>
+    cases hT
+    simp [ALOOKUP] at hL
+  | cons hd tl ih =>
+    obtain ⟨fn, nn, e⟩ := hd
+    cases hT
+    rename_i t1 t2 rest hCf _ _ hTl
+    by_cases hfn : fn = n
+    · subst hfn
+      simp [ALOOKUP] at hL
+      subst hL
+      exact ⟨t1, t2, rfl, hCf⟩
+    · have hb : (fn == n) = false := by simp; exact hfn
+      simp [ALOOKUP, hb] at hL
+      exact ih rest hTl hL
 /- HOL4:
 Theorem type_funs_lookup:
  ∀fn tenvE funs bindings n e tenv.
@@ -1239,7 +1482,27 @@ theorem type_funs_lookup :
       (bindings : List (varN × sem_t)) (n : varN) (e : exp) (tenv : type_env),
       (fn, n, e) ∈ funs ∧
       type_funs tenv tenvE funs bindings →
-      ∃ (t : sem_t), ALOOKUP bindings fn = some t := sorry
+      ∃ (t : sem_t), ALOOKUP bindings fn = some t := by
+  intro fn tenvE funs bindings n e tenv ⟨hMem, hT⟩
+  induction funs generalizing bindings with
+  | nil => simp at hMem
+  | cons hd tl ih =>
+    obtain ⟨fn', n', e'⟩ := hd
+    cases hT
+    rename_i t1 t2 rest _ _ _ hTl
+    simp at hMem
+    rcases hMem with ⟨heq1, heq2, heq3⟩ | hMem
+    · subst heq1; subst heq2; subst heq3
+      refine ⟨Tfn t1 t2, ?_⟩
+      simp [ALOOKUP]
+    · by_cases hfeq : fn' = fn
+      · subst hfeq
+        refine ⟨Tfn t1 t2, ?_⟩
+        simp [ALOOKUP]
+      · obtain ⟨t, hL⟩ := ih rest hMem hTl
+        refine ⟨t, ?_⟩
+        have hb : (fn' == fn) = false := by simp; exact hfeq
+        simp [ALOOKUP, hb]; exact hL
 /- HOL4:
 Theorem type_funs_find_recfun:
  ∀fn env funs bindings e tenv tenvE t.
@@ -1254,7 +1517,28 @@ theorem type_funs_find_recfun :
       (tenvE : tenv_val_exp) (t : sem_t),
       ALOOKUP bindings fn = some t ∧
       type_funs tenv tenvE funs bindings →
-      ∃ (n : varN) (e : exp), find_recfun fn funs = some (n, e) := sorry
+      ∃ (n : varN) (e : exp), find_recfun fn funs = some (n, e) := by
+  intro fn _ funs bindings _ tenv tenvE t
+  induction funs generalizing bindings with
+  | nil =>
+    intro ⟨hL, hT⟩
+    cases hT
+    simp [ALOOKUP] at hL
+  | cons hd tl ih =>
+    intro ⟨hL, hT⟩
+    obtain ⟨fn', n', e'⟩ := hd
+    cases hT
+    rename_i t1 t2 rest _ _ _ hTl
+    by_cases hfn : fn' = fn
+    · subst hfn
+      refine ⟨n', e', ?_⟩
+      simp [find_recfun]
+    · have hb : (fn' == fn) = false := by simp; exact hfn
+      simp [ALOOKUP, hb] at hL
+      obtain ⟨n, e, hRec⟩ := ih rest ⟨hL, hTl⟩
+      refine ⟨n, e, ?_⟩
+      simp [find_recfun, hb]
+      exact hRec
 /- HOL4:
 Theorem type_recfun_lookup:
    ∀fn funs n e tenv tenvE bindings tvs t1 t2.
@@ -1273,7 +1557,33 @@ theorem type_recfun_lookup :
       type_funs tenv tenvE funs bindings ∧
       ALOOKUP bindings fn = some (Tfn t1 t2) →
       type_e tenv (.Bind_name n 0 t1 tenvE) e t2 ∧
-      check_freevars (num_tvs tenvE) [] (Tfn t1 t2) := sorry
+      check_freevars (num_tvs tenvE) [] (Tfn t1 t2) := by
+  intro fn funs n e tenv tenvE bindings _ t1 t2
+  induction funs generalizing bindings with
+  | nil =>
+    intro ⟨hFind, _, _⟩
+    simp [find_recfun] at hFind
+  | cons hd tl ih =>
+    intro ⟨hFind, hT, hL⟩
+    obtain ⟨fn', n', e'⟩ := hd
+    cases hT
+    rename_i u1 u2 rest hCf _ hTe hTl
+    by_cases hfn : fn' = fn
+    · subst hfn
+      simp [find_recfun] at hFind
+      simp [ALOOKUP] at hL
+      obtain ⟨heqn, heqe⟩ := hFind
+      subst heqn; subst heqe
+      obtain ⟨heq1, heq2⟩ : u1 = t1 ∧ u2 = t2 := by
+        have : Tfn u1 u2 = Tfn t1 t2 := hL
+        simp [Tfn] at this
+        exact ⟨this.1, this.2⟩
+      subst heq1; subst heq2
+      exact ⟨hTe, hCf⟩
+    · have hb : (fn' == fn) = false := by simp; exact hfn
+      simp [find_recfun, hb] at hFind
+      simp [ALOOKUP, hb] at hL
+      exact ih rest ⟨hFind, hTl, hL⟩
 /- HOL4:
 Theorem type_funs_distinct:
  ∀tenv tenvE funs bindings .
@@ -1285,7 +1595,21 @@ theorem type_funs_distinct :
     ∀ (tenv : type_env) (tenvE : tenv_val_exp) (funs : List (varN × varN × exp))
       (bindings : List (varN × sem_t)),
       type_funs tenv tenvE funs bindings →
-      ALL_DISTINCT (funs.map (fun (x, _, _) => x)) := sorry
+      ALL_DISTINCT (funs.map (fun (x, _, _) => x)) := by
+  intro tenv tenvE funs bindings h
+  induction funs generalizing bindings with
+  | nil => rfl
+  | cons hd tl ih =>
+    obtain ⟨fn, n, e⟩ := hd
+    cases h
+    rename_i t1 t2 rest _ hNone _ hTl
+    simp [ALL_DISTINCT]
+    refine ⟨?_, ih rest hTl⟩
+    intro fn' n' e' hMem hEq
+    subst hEq
+    obtain ⟨t, hL⟩ := type_funs_lookup fn' tenvE tl rest n' e' tenv ⟨hMem, hTl⟩
+    rw [hNone] at hL
+    exact absurd hL (by simp)
 /- HOL4: [local]
 Theorem type_e_subst_lem:
   ∀tenv tenvE e t targs tvs targs'.
