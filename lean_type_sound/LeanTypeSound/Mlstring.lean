@@ -255,31 +255,70 @@ Theorem explode_aux_thm:
 -/
 theorem explode_aux_thm (max n : Nat) (ls : String) :
     n + max = ls.data.length →
-    explode_aux (.strlit ls) n max = HOL4.DROP n ls.data := sorry
+    explode_aux (.strlit ls) n max = HOL4.DROP n ls.data := by
+  induction max generalizing n with
+  | zero =>
+    intro h
+    simp only [explode_aux, HOL4.DROP]
+    symm
+    rw [List.drop_eq_nil_iff]; omega
+  | succ k ih =>
+    intro h
+    simp only [explode_aux, strsub]
+    have hlt : n < ls.data.length := by omega
+    have hdrop : HOL4.DROP n ls.data = ls.data[n]! :: HOL4.DROP (n + 1) ls.data := by
+      unfold HOL4.DROP
+      rw [List.drop_eq_getElem_cons hlt]
+      simp [getElem!_pos ls.data n hlt]
+    rw [hdrop, ih (n + 1) (by omega)]
+    congr 1
 /- HOL4:
 Theorem explode_thm[simp]:
    explode (strlit ls) = ls
 -/
 theorem explode_thm (ls : String) :
-    explode (.strlit ls) = ls.data := sorry
+    explode (.strlit ls) = ls.data := by
+  unfold explode
+  have h := explode_aux_thm (strlen (.strlit ls)) 0 ls (by simp [strlen]; rfl)
+  rw [h]
+  simp [HOL4.DROP]
 /- HOL4:
 Theorem explode_implode[simp]:
    ∀x. explode (implode x) = x
 -/
 theorem explode_implode (x : String) :
-    explode (implode x) = x.data := sorry
+    explode (implode x) = x.data := by
+  unfold implode
+  exact explode_thm x
 /- HOL4:
 Theorem implode_explode[simp]:
    ∀x. implode (explode x) = x
 -/
 theorem implode_explode (x : mlstring) :
-    implode (String.ofList (explode x)) = x := sorry
+    implode (String.ofList (explode x)) = x := by
+  cases x with
+  | strlit s =>
+    unfold implode
+    rw [explode_thm]
+    congr 1
+    exact String.ofList_toList
 /- HOL4:
 Theorem explode_11[simp]:
    ∀s1 s2. (explode s1 = explode s2) ⇔ (s1 = s2)
 -/
 theorem explode_11 (s1 s2 : mlstring) :
-    explode s1 = explode s2 ↔ s1 = s2 := sorry
+    explode s1 = explode s2 ↔ s1 = s2 := by
+  cases s1 with
+  | strlit a =>
+    cases s2 with
+    | strlit b =>
+      rw [explode_thm, explode_thm]
+      constructor
+      · intro h
+        have ha : String.ofList a.data = a := String.ofList_toList
+        have hb : String.ofList b.data = b := String.ofList_toList
+        rw [← ha, ← hb, h]
+      · intro h; injection h with h; rw [h]
 /- HOL4:
 Theorem TOKENS_eq_tokens_aux:
    !P ls ss n len. (n + len = LENGTH (explode ls)) ==>

@@ -43,13 +43,23 @@ Theorem fst_triple[local]:
   (\ (x,y,z). x) = FST
 -/
 theorem fst_triple {α β γ : Type} :
-    (fun ((x, _, _) : α × β × γ) => x) = (fun (p : α × β × γ) => p.1) := sorry
+    (fun ((x, _, _) : α × β × γ) => x) = (fun (p : α × β × γ) => p.1) := rfl
 /- HOL4:
 Theorem sing_list[local]:
   !l. LENGTH l = 1 ⇔ ?x. l = [x]
 -/
 theorem sing_list {α : Type} :
-    ∀ (l : List α), l.length = 1 ↔ ∃ (x : α), l = [x] := sorry
+    ∀ (l : List α), l.length = 1 ↔ ∃ (x : α), l = [x] := by
+  intro l
+  constructor
+  · intro h
+    cases l with
+    | nil => simp at h
+    | cons a as =>
+      cases as with
+      | nil => exact ⟨a, rfl⟩
+      | cons _ _ => simp at h
+  · rintro ⟨x, rfl⟩; rfl
 /- HOL4:
 Theorem EVERY_LIST_REL[local]:
   EVERY (\x. f x y) l = LIST_REL (\x y. f x y) l (REPLICATE (LENGTH l) y)
@@ -62,7 +72,8 @@ Theorem v_unchanged[simp]:
   !tenv x. tenv with v := tenv.v = tenv
 -/
 theorem v_unchanged :
-    ∀ (tenv : type_env), { tenv with v := tenv.v } = tenv := sorry
+    ∀ (tenv : type_env), { tenv with v := tenv.v } = tenv := by
+  intro tenv; cases tenv; rfl
 /- HOL4:
 Theorem check_dup_ctors_thm:
   check_dup_ctors (tvs,tn,condefs) = ALL_DISTINCT (MAP FST condefs)
@@ -195,7 +206,9 @@ Theorem same_type_refl[local]:
   !t. same_type t t
 -/
 theorem same_type_refl :
-    ∀ (t : stamp), same_type t t := sorry
+    ∀ (t : stamp), same_type t t := by
+  intro t
+  cases t <;> simp [same_type]
 /- HOL4:
 Theorem eq_same_type[local]:
   (!v1 v2 tvs ctMap cns tenvS t.

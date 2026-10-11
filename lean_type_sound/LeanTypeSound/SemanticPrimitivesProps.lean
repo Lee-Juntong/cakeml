@@ -177,22 +177,23 @@ def shift_lookup_64 : shift → word64 → Nat → word64
    (env:'v sem_env) with v := env.v = env
 -/
 theorem with_same_v (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by cases env; rfl
 /- HOL4: Theorem unchanged_env[simp]:
    !(env : 'a sem_env). <| v := env.v; c := env.c |> = env
 -/
 theorem unchanged_env (env : sem_env) :
-    sem_env.mk env.v_ env.c = env := sorry
+    sem_env.mk env.v_ env.c = env := by cases env; rfl
 /- HOL4: Theorem with_same_clock:
    (st:'ffi state) with clock := st.clock = st
 -/
 theorem with_same_clock {ffi : Type} (st : cml_state ffi) :
-    { st with clock := st.clock } = st := sorry
+    { st with clock := st.clock } = st := by cases st; rfl
 /- HOL4: Theorem Boolv_11[simp]:
    Boolv b1 = Boolv b2 <=> (b1 = b2)
 -/
 theorem Boolv_11 (b1 b2 : Bool) :
-    Boolv b1 = Boolv b2 ↔ b1 = b2 := sorry
+    Boolv b1 = Boolv b2 ↔ b1 = b2 := by
+  cases b1 <;> cases b2 <;> simp [Boolv]
 /- HOL4: Theorem extend_dec_env_assoc[simp]:
    !env1 env2 env3.
     extend_dec_env env1 (extend_dec_env env2 env3)
