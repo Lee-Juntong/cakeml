@@ -66,7 +66,28 @@ Theorem EVERY_LIST_REL[local]:
 -/
 theorem EVERY_LIST_REL_local {α β : Type} :
     ∀ (f : α → β → Prop) (y : β) (l : List α),
-      (∀ (x : α), x ∈ l → f x y) ↔ LIST_REL (fun x y => f x y) l (REPLICATE l.length y) := sorry
+      (∀ (x : α), x ∈ l → f x y) ↔ LIST_REL (fun x y => f x y) l (REPLICATE l.length y) := by
+  intros f y l
+  induction l with
+  | nil =>
+    simp only [List.length_nil, REPLICATE, List.replicate]
+    constructor
+    · intro _; exact LIST_REL.nil
+    · intros _ x hx; cases hx
+  | cons a as ih =>
+    simp only [List.length_cons, REPLICATE, List.replicate]
+    constructor
+    · intro h
+      refine LIST_REL.cons a y as _ (h a (by simp)) ?_
+      exact (ih.mp (fun x hx => h x (by simp [hx])))
+    · intro h x hx
+      cases hx with
+      | head =>
+        cases h with
+        | cons _ _ _ _ hfab _ => exact hfab
+      | tail _ hmem =>
+        cases h with
+        | cons _ _ _ _ _ hrest => exact ih.mpr hrest x hmem
 /- HOL4:
 Theorem v_unchanged[simp]:
   !tenv x. tenv with v := tenv.v = tenv
@@ -356,7 +377,11 @@ Theorem remove_lambda_prod[local]:
 -/
 theorem remove_lambda_prod {α β γ : Type} :
     ∀ (P : α → β → γ),
-      (fun ((x, y) : α × β) => P x y) = (fun (p : α × β) => P p.1 p.2) := sorry
+      (fun ((x, y) : α × β) => P x y) = (fun (p : α × β) => P p.1 p.2) := by
+  intro P
+  funext p
+  cases p
+  rfl
 /- HOL4:
 Theorem opapp_type_sound:
   !ctMap tenvS vs ts t.
@@ -397,7 +422,11 @@ Theorem store_type_extension_refl:
   !tenvS. store_type_extension tenvS tenvS
 -/
 theorem store_type_extension_refl :
-    ∀ (tenvS : tenv_store), store_type_extension tenvS tenvS := sorry
+    ∀ (tenvS : tenv_store), store_type_extension tenvS tenvS := by
+  intro tenvS
+  refine ⟨Finmap.FEMPTY, ?_, ?_⟩
+  · funext l; simp [Finmap.FUNION, Finmap.FEMPTY]
+  · intro l; left; rfl
 /- HOL4:
 Theorem store_type_extension_trans:
   !s1 s2 s3.

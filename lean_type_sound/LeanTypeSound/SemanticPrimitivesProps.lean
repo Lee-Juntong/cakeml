@@ -549,7 +549,10 @@ theorem FV_defs_MAP (ls : List (varN × varN × exp)) :
    !xs. concrete_v_list xs = EVERY concrete_v xs
 -/
 theorem concrete_v_list_thm (xs : List v) :
-    concrete_v_list xs = xs.all concrete_v := sorry
+    concrete_v_list xs = xs.all concrete_v := by
+  induction xs with
+  | nil => simp [concrete_v_list]
+  | cons a as ih => simp [concrete_v_list, ih, Bool.and_comm]
 /- HOL4: Theorem prim_type_cases:
    !ty. ty = BoolT \/ ty = IntT \/ ty = CharT \/ ty = StrT \/
         ty = WordT W8 \/ ty = WordT W64 \/ ty = Float64T
@@ -561,4 +564,14 @@ theorem prim_type_cases (ty : prim_type) :
     ty = .StrT ∨
     ty = .WordT .W8 ∨
     ty = .WordT .W64 ∨
-    ty = .Float64T := sorry
+    ty = .Float64T := by
+  cases ty with
+  | BoolT => exact Or.inl rfl
+  | IntT => exact Or.inr (Or.inl rfl)
+  | CharT => exact Or.inr (Or.inr (Or.inl rfl))
+  | StrT => exact Or.inr (Or.inr (Or.inr (Or.inl rfl)))
+  | WordT w =>
+    cases w with
+    | W8 => exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl rfl))))
+    | W64 => exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl rfl)))))
+  | Float64T => exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr rfl)))))

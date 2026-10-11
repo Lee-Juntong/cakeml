@@ -94,7 +94,16 @@ Theorem weak_tenvE_bind[local]:
 theorem weak_tenvE_bind :
     ∀ (tenvE tenvE' : tenv_val_exp) (n : mlstring) (tvs : Nat) (t : sem_t),
       weak_tenvE tenvE' tenvE →
-      weak_tenvE (.Bind_name n tvs t tenvE') (.Bind_name n tvs t tenvE) := sorry
+      weak_tenvE (.Bind_name n tvs t tenvE') (.Bind_name n tvs t tenvE) := by
+  intros tenvE tenvE' n tvs t hw
+  obtain ⟨hnum, hlk⟩ := hw
+  refine ⟨?_, ?_⟩
+  · simp [num_tvs]; exact hnum
+  · intros n0 inc tvs0 t0
+    simp only [tveLookup]
+    split
+    · constructor <;> intro h <;> exact h
+    · exact hlk n0 inc tvs0 t0
 /- HOL4:
 Theorem weak_tenvE_opt_bind[local]:
   !tenv tenv' n tvs t.
@@ -104,7 +113,11 @@ Theorem weak_tenvE_opt_bind[local]:
 theorem weak_tenvE_opt_bind :
     ∀ (tenvE tenvE' : tenv_val_exp) (n : Option mlstring) (tvs : Nat) (t : sem_t),
       weak_tenvE tenvE' tenvE →
-      weak_tenvE (opt_bind_name n tvs t tenvE') (opt_bind_name n tvs t tenvE) := sorry
+      weak_tenvE (opt_bind_name n tvs t tenvE') (opt_bind_name n tvs t tenvE) := by
+  intros tenvE tenvE' n tvs t hw
+  cases n with
+  | none => simp [opt_bind_name]; exact hw
+  | some n' => simp [opt_bind_name]; exact weak_tenvE_bind tenvE tenvE' n' tvs t hw
 /- HOL4:
 Theorem weak_tenvE_bind_tvar[local]:
   !tenv tenv' tvs.
@@ -114,7 +127,18 @@ Theorem weak_tenvE_bind_tvar[local]:
 theorem weak_tenvE_bind_tvar :
     ∀ (tenvE tenvE' : tenv_val_exp) (tvs : Nat),
       weak_tenvE tenvE' tenvE →
-      weak_tenvE (bind_tvar tvs tenvE') (bind_tvar tvs tenvE) := sorry
+      weak_tenvE (bind_tvar tvs tenvE') (bind_tvar tvs tenvE) := by
+  intros tenvE tenvE' tvs hw
+  obtain ⟨hnum, hlk⟩ := hw
+  simp only [bind_tvar]
+  by_cases hz : tvs = 0
+  · simp [hz]; exact ⟨hnum, hlk⟩
+  · have hbeq : (tvs == 0) = false := by simp [hz]
+    simp [hbeq]
+    refine ⟨?_, ?_⟩
+    · simp [num_tvs]; omega
+    · intros n0 inc tvs0 t0
+      simp [tveLookup]; exact hlk n0 (inc + tvs) tvs0 t0
 /- HOL4:
 Theorem weak_tenvE_bind_tvar2[local]:
   !tenv tenv' n tvs t.
@@ -136,7 +160,14 @@ Theorem weak_tenvE_bind_var_list[local]:
 theorem weak_tenvE_bind_var_list :
     ∀ (bindings : List (mlstring × sem_t)) (tenvE tenvE' : tenv_val_exp) (tvs : Nat),
       weak_tenvE tenvE' tenvE →
-      weak_tenvE (bind_var_list tvs bindings tenvE') (bind_var_list tvs bindings tenvE) := sorry
+      weak_tenvE (bind_var_list tvs bindings tenvE') (bind_var_list tvs bindings tenvE) := by
+  intros bindings tenvE tenvE' tvs hw
+  induction bindings with
+  | nil => simp [bind_var_list]; exact hw
+  | cons p bs ih =>
+    obtain ⟨n, t⟩ := p
+    simp [bind_var_list]
+    exact weak_tenvE_bind _ _ n tvs t ih
 /- HOL4:
 Theorem eLookupC_weak[local]:
   ∀cn tenv tenv' tvs ts tn.
@@ -243,7 +274,10 @@ Theorem weak_ctMap_lookup[local]:
 theorem weak_ctMap_lookup :
     ∀ (cm cm' : ctMap) (tvs : List tvarN) (ts : List sem_t × type_ident) (stmp : stamp),
       weakCT cm' cm ∧ Finmap.FLOOKUP cm stmp = some (tvs, ts) →
-      Finmap.FLOOKUP cm' stmp = some (tvs, ts) := sorry
+      Finmap.FLOOKUP cm' stmp = some (tvs, ts) := by
+  intros cm cm' tvs ts stmp h
+  obtain ⟨hw, hlk⟩ := h
+  exact hw stmp (tvs, ts) hlk
 /- HOL4:
 Theorem weakCT_refl:
  !ctMap. weakCT ctMap ctMap

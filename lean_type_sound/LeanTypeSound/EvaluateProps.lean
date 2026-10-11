@@ -163,7 +163,14 @@ theorem is_clock_io_mono_err {ffi α β : Type}
    (case x of (a, b) => P a b) = (!a b. x = (a, b) ==> P a b)
 -/
 theorem pair_CASE_eq_forall {α β : Type} {P : α → β → Prop} {x : α × β} :
-    (match x with | (a, b) => P a b) = (∀ a b, x = (a, b) → P a b) := sorry
+    (match x with | (a, b) => P a b) = (∀ a b, x = (a, b) → P a b) := by
+  obtain ⟨a, b⟩ := x
+  apply propext
+  constructor
+  · intro h a' b' heq
+    injection heq with ha hb
+    subst ha; subst hb; exact h
+  · intro h; exact h a b rfl
 /- HOL4: Theorem is_clock_io_mono_bind
    is_clock_io_mono f s /\ (!s' r. f s = (s', r)
         ==> is_clock_io_mono (g r) s')
@@ -320,4 +327,30 @@ theorem is_clock_io_mono_minimal {ffi α β : Type}
 theorem can_pmatch_all_EVERY
     (envC : env_ctor) (refs : store v) (ps : List pat) (val_ : v) :
     can_pmatch_all envC refs ps val_ = true ↔
-    ∀ p, p ∈ ps → pmatch envC refs p val_ [] ≠ .Match_type_error := sorry
+    ∀ p, p ∈ ps → pmatch envC refs p val_ [] ≠ .Match_type_error := by
+  induction ps with
+  | nil => simp [can_pmatch_all]
+  | cons p ps ih =>
+    simp only [can_pmatch_all]
+    split
+    · rename_i hm
+      constructor
+      · intro h; cases h
+      · intro hall
+        exfalso
+        have := hall p (by simp)
+        exact this hm
+    · rename_i hm
+      constructor
+      · intro hall q hq
+        cases hq with
+        | head =>
+          intro heq
+          rw [heq] at hm
+          simp at hm
+        | tail _ hq' =>
+          exact (ih.mp hall) q hq'
+      · intro hall
+        apply ih.mpr
+        intro q hq
+        exact hall q (by simp [hq])

@@ -123,7 +123,11 @@ Theorem extend_dec_tenv_assoc[simp]:
 theorem extend_dec_tenv_assoc_thm :
     ∀ (tenv1 tenv2 tenv3 : type_env),
       extend_dec_tenv tenv1 (extend_dec_tenv tenv2 tenv3) =
-      extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3 := sorry
+      extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3 := by
+  intros tenv1 tenv2 tenv3
+  cases tenv1; cases tenv2; cases tenv3
+  simp only [extend_dec_tenv]
+  rw [nsAppend_assoc, nsAppend_assoc, nsAppend_assoc]
 /- HOL4:
 Theorem tenv_val_ok_nsEmpty[simp]:
    tenv_val_ok nsEmpty
