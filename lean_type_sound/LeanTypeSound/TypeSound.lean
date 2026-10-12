@@ -452,7 +452,12 @@ theorem type_env_conv_thm :
           ∃ (cn' : conN) (stmp : stamp),
             nsLookup envC cn = some (ts.length, stmp) ∧
             Finmap.FLOOKUP ctMap_ stmp = some (tvs', ts, tn)) ∧
-        (nsLookup tenvC cn = none → nsLookup envC cn = none) := sorry
+        (nsLookup tenvC cn = none → nsLookup envC cn = none) := by
+  intro ctMap_ envC tenvC h cn tvs' ts tn _
+  refine ⟨fun hl => ?_, fun hl => (nsAll2_nsLookup_none _ _ _ cn h).2 hl⟩
+  obtain ⟨⟨k, st⟩, h1, h2, h3⟩ := nsAll2_nsLookup2 _ _ _ _ _ ⟨hl, h⟩
+  refine ⟨default, st, ?_, h2⟩
+  simp only at h3; rw [h1, h3]
 /- HOL4:
 Theorem type_funs_fst[local]:
   !tenv tenvE funs tenv'.
@@ -473,6 +478,26 @@ theorem type_funs_fst :
     cases h with
     | cons _ fn n e t1 t2 _ bindings h1 h2 h3 h4 =>
       simp [ih _ _ h3]
+theorem type_v_recclosure_of_env {ctMap_ : ctMap} {tenvS : tenv_store} {tenv : type_env}
+    {tenvE : tenv_val_exp} {env : sem_env} {tvs : Nat} {funs : List (varN × varN × exp)}
+    {bindings : List (varN × sem_t)} {fn_ : varN} {t : sem_t}
+    (htok : tenv_ok tenv) (hEok : tenv_val_exp_ok tenvE) (h0 : num_tvs tenvE = 0)
+    (henv : type_all_env ctMap_ tenvS env { tenv with v := add_tenvE tenvE tenv.v })
+    (hf : type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs bindings)
+    (hl : ALOOKUP bindings fn_ = some t) (hd : ALL_DISTINCT (funs.map Prod.fst)) :
+    type_v tvs ctMap_ tenvS (.Recclosure env funs fn_) t := by
+  obtain ⟨hc, hv⟩ := henv
+  have hv' := hv
+  obtain ⟨⟨s1, m1⟩, ⟨_, m2⟩⟩ := hv'
+  refine .recclosure _ _ _ tenv tenvE env fn_ funs bindings t htok hEok h0 hc
+    (fun id_ => nsAll2_nsLookup_none _ _ _ id_ hv) m1 m2 ?_ hf hl hd ?_
+  · intro id_ val_ p h1 h2
+    obtain ⟨p', h1', h2'⟩ := s1 id_ val_ h1
+    simp only at h1'
+    rw [h1'] at h2; cases h2; exact h2'
+  · rw [type_funs_fst _ _ _ _ hf]
+    exact List.mem_map.2 ⟨_, ALOOKUP_mem hl, rfl⟩
+
 /- HOL4:
 Theorem type_recfun_env_help[local]:
   ∀fn funs funs' ctMap tenv bindings tenvE env tenvS tvs bindings'.
@@ -504,7 +529,21 @@ theorem type_recfun_env_help :
       LIST_REL (fun (p1 : varN × v) (p2 : varN × Nat × sem_t) =>
                   p1.1 = p2.1 ∧ type_v p2.2.1 ctMap_ tenvS p1.2 p2.2.2)
         (funs.map (fun (p : varN × varN × exp) => (p.1, v.Recclosure env funs' p.1)))
-        (bindings.map (fun (p : varN × sem_t) => (p.1, tvs, p.2))) := sorry
+        (bindings.map (fun (p : varN × sem_t) => (p.1, tvs, p.2))) := by
+  intro _ funs funs' ctMap_ tenv bindings tenvE env tenvS tvs bindings'
+    ⟨hd, htok, henv, hEok, h0, hsub, hf', hf⟩
+  induction funs generalizing bindings with
+  | nil => cases hf; exact .nil
+  | cons f funs ih =>
+    cases hf with
+    | cons _ fn n e t1 t2 _ bs _ _ hrest hnone =>
+      refine .cons _ _ _ _ ⟨rfl, ?_⟩ (ih bs (fun fn' t' hl => hsub fn' t' ?_) hrest)
+      · exact type_v_recclosure_of_env htok hEok h0 henv hf'
+          (hsub fn _ (by simp [ALOOKUP])) hd
+      · simp only [ALOOKUP]
+        split
+        · rename_i he; simp at he; subst he; rw [hnone] at hl; cases hl
+        · exact hl
 /- HOL4:
 Theorem type_recfun_env[local]:
   ∀funs ctMap tenvS tvs tenv tenvE env bindings.
@@ -532,7 +571,10 @@ theorem type_recfun_env :
       LIST_REL (fun (p1 : varN × v) (p2 : varN × Nat × sem_t) =>
                   p1.1 = p2.1 ∧ type_v p2.2.1 ctMap_ tenvS p1.2 p2.2.2)
         (funs.map (fun (p : varN × varN × exp) => (p.1, v.Recclosure env funs p.1)))
-        (bindings.map (fun (p : varN × sem_t) => (p.1, tvs, p.2))) := sorry
+        (bindings.map (fun (p : varN × sem_t) => (p.1, tvs, p.2))) := by
+  intro funs ctMap_ tenvS tvs tenv tenvE env bindings ⟨htok, henv, hEok, h0, hf, hd⟩
+  exact type_recfun_env_help default funs funs ctMap_ tenv bindings tenvE env tenvS tvs bindings
+    ⟨hd, htok, henv, hEok, h0, fun _ _ h => h, hf, hf⟩
 /- HOL4:
 val type_v_exn = Q.prove (
   `!tvs cenv senv.
@@ -574,6 +616,29 @@ theorem remove_lambda_prod {α β γ : Type} :
     ∀ (P : α → β → γ),
       (fun ((x, y) : α × β) => P x y) = (fun (p : α × β) => P p.1 p.2) := by
   intro P; funext p; rfl
+theorem nsAll2_of_closure_conds {ctMap_ : ctMap} {tenvS : tenv_store}
+    {ev : «namespace» modN varN v} {tv : tenv_val}
+    (h1 : ∀ (id_ : cml_id modN varN), (nsLookup ev id_ = none ↔ nsLookup tv id_ = none))
+    (h2 : ∀ (path : List modN), nsLookupMod tv path = none → nsLookupMod ev path = none)
+    (h3 : ∀ (path : List modN), nsLookupMod ev path = none → nsLookupMod tv path = none)
+    (h4 : ∀ (id_ : cml_id modN varN) (val_ : v) (p : Nat × sem_t),
+      nsLookup ev id_ = some val_ → nsLookup tv id_ = some p → type_v p.1 ctMap_ tenvS val_ p.2) :
+    nsAll2 (fun _ v_ p => type_v p.1 ctMap_ tenvS v_ p.2) ev tv := by
+  refine ⟨⟨fun id_ val_ hl => ?_, h2⟩, ⟨fun id_ p hl => ?_, h3⟩⟩
+  · cases hp : nsLookup tv id_ with
+    | none => rw [← h1] at hp; rw [hp] at hl; cases hl
+    | some p => exact ⟨p, rfl, h4 id_ val_ p hl hp⟩
+  · cases hv : nsLookup ev id_ with
+    | none => rw [h1] at hv; rw [hv] at hl; cases hl
+    | some val_ => exact ⟨val_, rfl, h4 id_ val_ p hv hl⟩
+
+theorem build_rec_env_nsBindList (funs : List (varN × varN × exp)) (env : sem_env)
+    (e : «namespace» modN varN v) :
+    build_rec_env funs env e =
+      nsBindList (funs.map (fun (p : varN × varN × exp) => (p.1, v.Recclosure env funs p.1))) e := by
+  unfold build_rec_env nsBindList
+  rw [List.foldr_map]
+
 /- HOL4:
 Theorem opapp_type_sound:
   !ctMap tenvS vs ts t.
@@ -600,7 +665,62 @@ theorem opapp_type_sound :
         num_tvs tenvE = 0 ∧
         type_all_env ctMap_ tenvS env { tenv with v := add_tenvE tenvE tenv.v } ∧
         type_e tenv tenvE e t ∧
-        do_opapp vs = some (env, e) := sorry
+        do_opapp vs = some (env, e) := by
+  intro ctMap_ tenvS vs ts t ⟨hok, hop, hrel⟩
+  rcases hrel with _ | ⟨f, tf, _, _, hf, hrel⟩
+  · simp [type_op] at hop
+  rcases hrel with _ | ⟨a, ta, _, _, ha, hrel⟩
+  · simp [type_op] at hop
+  rcases hrel with _ | ⟨_, _, _, _, _, _⟩
+  rotate_left; · simp [type_op] at hop
+  simp only [type_op] at hop
+  subst hop
+  rcases (prim_canonical_values_thm 0 ctMap_ tenvS f [] [] ta t t).2.2.2.2.2.2.2.1 ⟨hf, hok⟩ with
+    ⟨env, n, e, rfl⟩ | ⟨env, funs, n, rfl⟩
+  · generalize hT : Tfn ta t = T at hf
+    cases hf with
+    | closure _ _ _ tenv tenvE _ _ _ t1 t2 htok hEok h0 hc c1 c2 c3 c4 hfv hty =>
+      simp only [Tfn, sem_t.Tapp.injEq, List.cons.injEq, and_true] at hT
+      obtain ⟨rfl, rfl⟩ := hT
+      refine ⟨.mk (nsBind n a env.v_) env.c, e, tenv, .Bind_name n 0 ta tenvE, htok, ?_, by simpa [num_tvs] using h0,
+        ⟨hc, ?_⟩, by simpa [bind_tvar0] using hty, rfl⟩
+      · simp only [tenv_val_exp_ok, h0, Nat.add_zero]; exact ⟨hfv, hEok⟩
+      · simp only [add_tenvE]
+        exact nsAll2_nsBind _ _ _ _ _ _ ⟨ha, nsAll2_of_closure_conds c1 c2 c3 c4⟩
+  · generalize hT : Tfn ta t = T at hf
+    cases hf with
+    | recclosure _ _ _ tenv tenvE _ _ _ bindings _ htok hEok h0 hc c1 c2 c3 c4 hfs hl hd hm =>
+      subst hT
+      have hfs' : type_funs tenv (bind_var_list 0 bindings tenvE) funs bindings := by
+        simpa [bind_tvar0] using hfs
+      obtain ⟨x, e, hfind⟩ := type_funs_find_recfun n [] funs bindings (.Lit (.IntLit 0)) tenv _ _
+        ⟨hl, hfs'⟩
+      obtain ⟨hty, hfv⟩ := type_recfun_lookup_aux hfs' n x e ta t hfind hl
+      have hEok' : tenv_val_exp_ok (bind_var_list 0 bindings tenvE) :=
+        tenv_val_exp_ok_bvl _ _ ⟨hEok, by
+          simp only [EVERY, List.all_eq_true, List.mem_map]
+          rintro _ ⟨b, hb, rfl⟩
+          have := type_funs_freevars_aux hfs' b hb
+          rwa [num_tvs_bind_var_list] at this⟩
+      have h0' : num_tvs (bind_var_list 0 bindings tenvE) = 0 := by
+        rw [num_tvs_bind_var_list]; omega
+      refine ⟨.mk (nsBind x a (build_rec_env funs env env.v_)) env.c, e, tenv, .Bind_name x 0 ta (bind_var_list 0 bindings tenvE), htok, ?_,
+        by simpa [num_tvs] using h0', ⟨hc, ?_⟩, hty, ?_⟩
+      · simp only [tenv_val_exp_ok, h0', Nat.add_zero]
+        refine ⟨?_, hEok'⟩
+        simp only [Tfn, check_freevars_Tapp] at hfv
+        rw [h0'] at hfv
+        simp at hfv
+        exact hfv.1
+      · simp only [add_tenvE]
+        refine nsAll2_nsBind (m := modN) (n := varN) (fun _ v_ p => type_v p.1 ctMap_ tenvS v_ p.2) x a (0, ta) _ _ ⟨ha, ?_⟩
+        rw [add_tenvE_bvl, build_rec_env_nsBindList]
+        refine nsAll2_nsBindList _ _ _ _ _ ⟨?_, nsAll2_of_closure_conds c1 c2 c3 c4⟩
+        have := type_recfun_env funs ctMap_ tenvS 0 tenv tenvE env bindings
+          ⟨htok, ⟨hc, nsAll2_of_closure_conds c1 c2 c3 c4⟩, hEok, h0, hfs, hd⟩
+        simpa using this
+      · have hd' : ALL_DISTINCT (funs.map fun (p : varN × varN × exp) => p.1) = true := hd
+        simp only [do_opapp, hd', hfind, if_true]
 /- HOL4:
 Theorem store_type_extension_weakS:
   !tenvS1 tenvS2.
@@ -646,6 +766,10 @@ theorem store_type_extension_trans :
       have hs2 : s2 l = some w := by subst ha; simp [Finmap.FUNION, ha', h1]
       have hb' : b l = none := by rcases hdb l with h | h; exact h; rw [h] at hs2; cases hs2
       simp [Finmap.FUNION, ha', hb']
+theorem store_lookup_some_iff {α : Type} {l : Nat} {st : List (store_v α)} :
+    (∃ x, store_lookup l st = some x) ↔ l < st.length := by
+  unfold store_lookup; split <;> simp_all
+
 /- HOL4:
 Theorem store_assign_type_sound:
   !ctMap tenvS store sv st l.
@@ -665,7 +789,34 @@ theorem store_assign_type_sound :
       type_sv ctMap_ tenvS sv st →
       ∃ (store' : List (store_v v)),
         store_assign l sv store_ = some store' ∧
-        type_s ctMap_ store' tenvS := sorry
+        type_s ctMap_ store' tenvS := by
+  intro ctMap_ tenvS store_ sv st l ⟨hs, hl, hsv⟩
+  obtain ⟨sv0, h0, hsv0⟩ := type_s_lookup hs hl
+  have hlt : l < store_.length := store_lookup_some_iff.1 ⟨_, h0⟩
+  have hel : EL l store_ = sv0 := by
+    unfold store_lookup at h0; simp [hlt] at h0; exact h0
+  have hsame : store_v_same_type sv0 sv = true := by
+    cases sv0 <;> cases sv <;> cases st <;> simp_all [type_sv, store_v_same_type]
+  refine ⟨LUPDATE sv l store_, by simp [store_assign, hlt, hel, hsame], fun l' => ⟨?_, ?_⟩⟩
+  · rw [(hs l').1, store_lookup_some_iff, store_lookup_some_iff]; simp [LUPDATE]
+  · intro st' sv' ⟨h1, h2⟩
+    by_cases he : l' = l
+    · subst he
+      unfold store_lookup at h2
+      simp [LUPDATE, hlt, EL] at h2
+      rw [hl] at h1; cases h1; subst h2; exact hsv
+    · apply (hs l').2 st' sv' ⟨h1, ?_⟩
+      unfold store_lookup at h2 ⊢
+      simp only [LUPDATE, List.length_set] at h2
+      split at h2
+      · simp only [EL] at h2 ⊢
+        rw [if_pos (by assumption)]
+        have hne : l ≠ l' := Ne.symm he
+        first
+          | simpa [List.getElem!_eq_getElem?_getD, List.getElem?_set_ne hne] using h2
+          | simpa [getElem!_def, List.getElem?_set_ne hne] using h2
+          | simpa [hne] using h2
+      · cases h2
 /- HOL4:
 Theorem store_alloc_type_sound:
   !ctMap tenvS store sv st.
@@ -689,8 +840,72 @@ theorem store_alloc_type_sound :
         store_type_extension tenvS tenvS' ∧
         store_alloc sv store_ = (store', n) ∧
         type_s ctMap_ store' tenvS' ∧
-        Finmap.FLOOKUP tenvS' n = some st := sorry
+        Finmap.FLOOKUP tenvS' n = some st := by
+  intro ctMap_ tenvS store_ sv st ⟨_, hs, hsv⟩
+  have hdom : ∀ l, (∃ st', tenvS l = some st') ↔ l < store_.length := fun l =>
+    ((hs l).1).trans store_lookup_some_iff
+  have hnone : tenvS store_.length = none := by
+    cases h : tenvS store_.length with
+    | none => rfl
+    | some x => exact absurd ((hdom _).1 ⟨x, h⟩) (Nat.lt_irrefl _)
+  let ext : tenv_store := Finmap.FUPDATE Finmap.FEMPTY (store_.length, st)
+  have hweak : weakS (Finmap.FUNION ext tenvS) tenvS := by
+    intro k x hk
+    simp only [Finmap.FUNION, ext, Finmap.FUPDATE, Finmap.FEMPTY]
+    by_cases hk' : k = store_.length
+    · subst hk'; rw [hnone] at hk; cases hk
+    · simp [hk', hk]
+  refine ⟨store_ ++ [sv], Finmap.FUNION ext tenvS, store_.length,
+    ⟨ext, rfl, fun l => ?_⟩, rfl, fun l => ⟨?_, ?_⟩, ?_⟩
+  · by_cases hl : l = store_.length
+    · subst hl; exact Or.inr hnone
+    · left; simp [Finmap.FLOOKUP, ext, Finmap.FUPDATE, Finmap.FEMPTY, hl]
+  · rw [store_lookup_some_iff]
+    simp only [Finmap.FLOOKUP, Finmap.FUNION, ext, Finmap.FUPDATE, Finmap.FEMPTY, List.length_append,
+      List.length_singleton]
+    by_cases hl : l = store_.length
+    · subst hl; simp
+    · simp only [beq_iff_eq, hl, if_false]
+      rw [hdom]; omega
+  · intro st' sv' ⟨h1, h2⟩
+    simp only [Finmap.FLOOKUP, Finmap.FUNION, ext, Finmap.FUPDATE, Finmap.FEMPTY] at h1
+    unfold store_lookup at h2
+    simp only [List.length_append, List.length_singleton] at h2
+    split at h2
+    · by_cases hl : l = store_.length
+      · subst hl
+        simp only [beq_self_eq_true, if_true, Option.some.injEq] at h1
+        subst h1
+        simp [EL] at h2
+        subst h2
+        exact type_sv_weakening _ _ _ _ _ _ ⟨hsv, weakCT_refl _, hweak⟩
+      · simp only [beq_iff_eq, hl, if_false] at h1
+        have hlt : l < store_.length := by have := (hdom l).1 ⟨_, h1⟩; exact this
+        have : store_lookup l store_ = some sv' := by
+          unfold store_lookup; simp [hlt, EL] at h2 ⊢
+          rw [List.getElem?_append_left hlt, List.getElem?_eq_getElem hlt] at h2
+          simpa using h2
+        exact type_sv_weakening _ _ _ _ _ _ ⟨(hs l).2 st' sv' ⟨h1, this⟩, weakCT_refl _, hweak⟩
+    · cases h2
+  · simp [Finmap.FLOOKUP, Finmap.FUNION, ext, Finmap.FUPDATE]
 -- store_lookup_type_sound is commented out in HOL4 source
+
+theorem v_to_list_cases {x : v} {xs : List v} (h : v_to_list x = some xs) :
+    (xs = [] ∧ x = list_to_v []) ∨
+    ∃ a l v2, xs = a :: l ∧
+      x = .Conv (some (.TypeStamp (mlstring.strlit "::") list_type_num)) [a, v2] ∧
+      v_to_list v2 = some l := by
+  unfold v_to_list at h
+  split at h
+  · split at h
+    · cases h; left; refine ⟨rfl, ?_⟩; simp_all [list_to_v]
+    · cases h
+  · split at h
+    · split at h
+      · cases h
+      · cases h; right; refine ⟨_, _, _, rfl, ?_, ‹_›⟩; simp_all
+    · cases h
+  · cases h
 
 /- HOL4:
 Theorem type_v_list_to_v:
@@ -703,7 +918,28 @@ theorem type_v_list_to_v :
     ∀ (n : Nat) (ctMap_ : ctMap) (tenvS : tenv_store) (x : v) (xs : List v) (t : sem_t),
       type_v n ctMap_ tenvS x t ∧
       v_to_list x = some xs →
-      type_v n ctMap_ tenvS (list_to_v xs) t := sorry
+      type_v n ctMap_ tenvS (list_to_v xs) t := by
+  intro n ctMap_ tenvS x xs
+  induction xs generalizing x with
+  | nil =>
+    intro t ⟨ht, hx⟩
+    rcases v_to_list_cases hx with ⟨-, rfl⟩ | ⟨a, l, v2, h, -, -⟩
+    · exact ht
+    · cases h
+  | cons a l ih =>
+    intro t ⟨ht, hx⟩
+    rcases v_to_list_cases hx with ⟨h, -⟩ | ⟨a', l', v2, h, rfl, h2⟩
+    · cases h
+    · obtain ⟨rfl, rfl⟩ := List.cons.inj h
+      cases ht with
+      | conv_some _ _ _ ts' tvs' _ ts ti stmp h1 h2' h3 h4 h5 =>
+        refine .conv_some _ _ _ ts' tvs' _ ts ti _ h1 h2' (by simpa using h3) ?_ h5
+        intro i hi
+
+
+        match i, hi with
+        | 0, _ => exact h4 0 (by simp)
+        | 1, _ => exact ih v2 _ ⟨h4 1 (by simp), h2⟩
 /- HOL4:
 Theorem type_v_list_to_v_APPEND:
   !xs ys t.
@@ -718,7 +954,30 @@ theorem type_v_list_to_v_APPEND :
       ctMap_has_lists ctMap_ ∧
       type_v 0 ctMap_ tenvS (list_to_v xs) (.Tapp [t] Tlist_num) ∧
       type_v 0 ctMap_ tenvS (list_to_v ys) (.Tapp [t] Tlist_num) →
-      type_v 0 ctMap_ tenvS (list_to_v (xs ++ ys)) (.Tapp [t] Tlist_num) := sorry
+      type_v 0 ctMap_ tenvS (list_to_v (xs ++ ys)) (.Tapp [t] Tlist_num) := by
+  intro ctMap_ tenvS xs ys t ⟨hl, hx, hy⟩
+  induction xs with
+  | nil => exact hy
+  | cons a xs ih =>
+    simp only [list_to_v, List.cons_append] at hx ⊢
+    cases hx with
+    | conv_some _ _ _ ts' tvs' _ ts ti stmp h1 h2 h3 h4 h5 =>
+      rw [hl.2.1] at h5
+      obtain ⟨rfl, rfl, -⟩ := Prod.mk.inj (Option.some.inj h5)
+      have key : ∀ i, i < 2 → type_v 0 ctMap_ tenvS ([a, list_to_v xs])[i]!
+          (([.Tvar (mlstring.strlit "'a"), Tlist (.Tvar (mlstring.strlit "'a"))] : List sem_t).map
+            (type_subst (Finmap.FUPDATE_LIST Finmap.FEMPTY ([mlstring.strlit "'a"].zip [t]).reverse)))[i]! := by
+        intro i hi; exact h4 i (by simpa using hi)
+      have e1 : type_subst (Finmap.FUPDATE_LIST Finmap.FEMPTY ([mlstring.strlit "'a"].zip [t]).reverse)
+          (Tlist (.Tvar (mlstring.strlit "'a"))) = .Tapp [t] Tlist_num := by
+        simp [Tlist, type_subst, Finmap.FUPDATE_LIST, Finmap.FUPDATE, Finmap.FLOOKUP]
+      have hxs := key 1 (by decide)
+      simp only [List.map, e1] at hxs
+      refine .conv_some _ _ _ [t] _ _ _ _ _ h1 h2 (by simp) ?_ hl.2.1
+      intro i hi
+      match i, hi with
+      | 0, _ => exact key 0 (by decide)
+      | 1, _ => simp only [List.map, e1]; exact ih hxs
 /- HOL4:
 Theorem do_eq_Boolv:
   do_eq (Boolv b) (Boolv b') = Eq_val (b = b')
@@ -804,6 +1063,33 @@ theorem op_type_sound :
         | .Rerr (.Rraise val_) => type_v 0 ctMap_ tenvS' val_ Texn
         | .Rerr (.Rabort (.Rffi_error _)) => True
         | .Rerr (.Rabort _) => False := sorry
+theorem LIST_REL_append {α β : Type} {R : α → β → Prop} :
+    ∀ {xs1 xs2 : List α} {ys1 ys2 : List β},
+      LIST_REL R xs1 ys1 → LIST_REL R xs2 ys2 → LIST_REL R (xs1 ++ xs2) (ys1 ++ ys2)
+  | _, _, _, _, .nil, h2 => h2
+  | _, _, _, _, .cons _ _ _ _ hr h1, h2 => .cons _ _ _ _ hr (LIST_REL_append h1 h2)
+
+theorem LIST_REL_reverse {α β : Type} {R : α → β → Prop} :
+    ∀ {xs : List α} {ys : List β}, LIST_REL R xs ys → LIST_REL R xs.reverse ys.reverse
+  | _, _, .nil => .nil
+  | _, _, .cons _ _ _ _ hr h => by
+    simp only [List.reverse_cons]
+    exact LIST_REL_append (LIST_REL_reverse h) (.cons _ _ _ _ hr .nil)
+
+theorem LIST_REL_length {α β : Type} {R : α → β → Prop} :
+    ∀ {xs : List α} {ys : List β}, LIST_REL R xs ys → xs.length = ys.length
+  | _, _, .nil => rfl
+  | _, _, .cons _ _ _ _ _ h => by simp [LIST_REL_length h]
+
+theorem LIST_REL_getElem_bang {α β : Type} [Inhabited α] [Inhabited β] {R : α → β → Prop} :
+    ∀ {xs : List α} {ys : List β}, LIST_REL R xs ys →
+      ∀ i, i < xs.length → R xs[i]! ys[i]!
+  | _, _, .nil, i, hi => by simp at hi
+  | _, _, .cons _ _ _ _ hr h, i, hi => by
+    cases i with
+    | zero => simpa using hr
+    | succ i => simpa using LIST_REL_getElem_bang h i (by simpa using hi)
+
 /- HOL4:
 Theorem build_conv_type_sound:
  !envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.
@@ -835,7 +1121,19 @@ theorem build_conv_type_sound :
       nsLookup tenvC cn = some (tvs', ts, tn) →
       ∃ (val_ : v),
         build_conv envC (some cn) vs.reverse = some val_ ∧
-        type_v tvs ctMap_ tenvS val_ (.Tapp ts' tn) := sorry
+        type_v tvs ctMap_ tenvS val_ (.Tapp ts' tn) := by
+  intro envC cn vs tvs ts ctMap_ tenvS ts' tn tenvC tvs' tenvE l
+    ⟨hall, _, h0, hfv, hlen, hrel, hl⟩
+  obtain ⟨⟨k, st⟩, h1, h2, h3⟩ := nsAll2_nsLookup2 _ _ _ _ _ ⟨hl, hall⟩
+  refine ⟨.Conv (some st) vs.reverse, by simp [build_conv, h1], ?_⟩
+  have hrel' := LIST_REL_reverse hrel
+  rw [List.reverse_reverse, ← FUPDATE_LIST_reverse_eq_alist] at hrel'
+  refine .conv_some _ _ _ _ _ _ _ _ _ ?_ hlen (LIST_REL_length hrel')
+    (LIST_REL_getElem_bang hrel') h2
+  intro t' ht'
+  simp only [EVERY, List.all_eq_true] at hfv
+  have := hfv t' ht'
+  rwa [bind_tvar_rewrites.2.1, h0, Nat.add_zero] at this
 /- HOL4:
 Theorem same_ctor_and_same_tid:
    !stamp1 stamp2.
@@ -847,7 +1145,9 @@ Theorem same_ctor_and_same_tid:
 theorem same_ctor_and_same_tid :
     ∀ (stamp1 stamp2 : stamp),
       same_ctor stamp1 stamp2 ∧ same_type stamp1 stamp2 →
-      stamp1 = stamp2 := sorry
+      stamp1 = stamp2 := by
+  intro s1 s2 ⟨h, _⟩
+  simpa [same_ctor] using h
 /- HOL4:
 Theorem pat_type_sound:
   (∀(cenv : env_ctor) st p v bindings tenv ctMap tbindings t new_tbindings tenvS tvs.
@@ -936,7 +1236,29 @@ theorem lookup_var_sound :
       type_all_env ctMap_ tenvS env { tenv with v := add_tenvE tenvE tenv.v } →
       ∃ (val_ : v),
         nsLookup env.v_ n = some val_ ∧
-        type_v tvs ctMap_ tenvS val_ (deBruijn_subst 0 targs t) := sorry
+        type_v tvs ctMap_ tenvS val_ (deBruijn_subst 0 targs t) := by
+  intro n tvs tenvE targs t ctMap_ tenvS env tenv ⟨hl, hok, hEok, h0, hev, _, hv⟩
+  have hlook : nsLookup (add_tenvE tenvE tenv.v) n = some (targs.length, t) := by
+    unfold lookup_var at hl
+    split at hl
+    · rename_i x hx
+      cases hl
+      cases n with
+      | Short y =>
+        simp only [lookup_varE, tveLookup_bind_tvar, Nat.zero_add] at hx
+        exact nsLookup_add_tenvE1 _ _ _ _ _ _
+          ⟨tveLookup_closed y tenvE _ _ _ hEok h0 hx, hx⟩
+      | Long _ _ => simp [lookup_varE] at hx
+    · rename_i hx
+      cases n with
+      | Short y =>
+        simp only [lookup_varE, tveLookup_bind_tvar, Nat.zero_add] at hx
+        exact nsLookup_add_tenvE2 _ _ _ _ _ _ ⟨hx, hl⟩
+      | Long mn y => exact nsLookup_add_tenvE3 _ _ _ _ _ _ hl
+  obtain ⟨val_, h1, h2⟩ := nsAll2_nsLookup2 _ _ _ _ _ ⟨hlook, hv⟩
+  refine ⟨val_, h1, ?_⟩
+  exact type_subst_thm targs tvs _ _ _ _ _ h2
+    ⟨rfl, hok, hev, type_v_freevars _ _ _ _ _ h2⟩
 /- HOL4:
 Theorem EVERY_REPLICATE:
   EVERY (\x. type_v tvs ctMap tenv x t') vs =
@@ -945,7 +1267,14 @@ Theorem EVERY_REPLICATE:
 theorem EVERY_REPLICATE :
     ∀ (tvs : Nat) (ctMap_ : ctMap) (tenv : tenv_store) (t' : sem_t) (vs : List v),
       (∀ (x : v), x ∈ vs → type_v tvs ctMap_ tenv x t') ↔
-      (∀ (x : v × sem_t), x ∈ vs.zip (REPLICATE vs.length t') → type_v tvs ctMap_ tenv x.1 x.2) := sorry
+      (∀ (x : v × sem_t), x ∈ vs.zip (REPLICATE vs.length t') → type_v tvs ctMap_ tenv x.1 x.2) := by
+  intro tvs ctMap_ tenv t' vs
+  induction vs with
+  | nil => simp [REPLICATE]
+  | cons a l ih =>
+    simp only [REPLICATE, List.length_cons, List.replicate_succ, List.zip_cons_cons,
+      List.mem_cons, forall_eq_or_imp] at ih ⊢
+    rw [ih]
 /- HOL4:
 Theorem EVERY_LIST_REL:
   EVERY (\ v. type_v n ctMap tenvS v t) vs =
@@ -954,7 +1283,9 @@ Theorem EVERY_LIST_REL:
 theorem EVERY_LIST_REL_thm :
     ∀ (n : Nat) (ctMap_ : ctMap) (tenvS : tenv_store) (t : sem_t) (vs : List v),
       (∀ (v_ : v), v_ ∈ vs → type_v n ctMap_ tenvS v_ t) ↔
-      LIST_REL (type_v n ctMap_ tenvS) vs (REPLICATE vs.length t) := sorry
+      LIST_REL (type_v n ctMap_ tenvS) vs (REPLICATE vs.length t) := by
+  intro n ctMap_ tenvS t vs
+  exact EVERY_LIST_REL_local (fun x y => type_v n ctMap_ tenvS x y) t vs
 /- HOL4:
 Theorem exp_type_sound:
   (!(s:'ffi semanticPrimitives$state) env es r s' tenv tenvE ts tvs tenvS.
@@ -1053,6 +1384,110 @@ theorem exp_type_sound :
         | .Rerr (.Rabort .Rtimeout_error) => True
         | .Rerr (.Rabort (.Rffi_error _)) => True
         | .Rerr (.Rabort .Rtype_error) => False) := sorry
+theorem FUPDATE_LIST_reverse_apply {α β : Type} [BEq α] [LawfulBEq α] (m : Finmap α β) :
+    ∀ (l : List (α × β)) (k : α),
+      Finmap.FUPDATE_LIST m l.reverse k = (ALOOKUP l k).or (m k)
+  | [], k => by simp [Finmap.FUPDATE_LIST, ALOOKUP]
+  | (a, b) :: l, k => by
+    have ih := FUPDATE_LIST_reverse_apply m l k
+    simp only [Finmap.FUPDATE_LIST, List.reverse_cons, List.foldl_append, List.foldl] at ih ⊢
+    simp only [Finmap.FUPDATE, ALOOKUP, ih]
+    by_cases h : a = k
+    · subst h; simp
+    · have h' : k ≠ a := fun e => h e.symm
+      simp [h, h']
+
+theorem build_tdefs_no_mods (next : Nat) (tds : type_def) :
+    ∃ L, build_tdefs next tds = .Bind L [] := by
+  induction tds generalizing next with
+  | nil => exact ⟨[], rfl⟩
+  | cons td tds ih =>
+    obtain ⟨_, _, ctors⟩ := td
+    obtain ⟨L, hL⟩ := ih (next + 1)
+    exact ⟨L ++ (build_constrs next ctors).reverse, by simp [build_tdefs, hL, nsAppend, alist_to_ns]⟩
+
+theorem build_ctor_tenv_no_mods (tenvT : tenv_abbrev) :
+    ∀ (tds : type_def) (tids : List type_ident),
+    ∃ L, build_ctor_tenv tenvT tds tids = .Bind L []
+  | [], [] => ⟨[], rfl⟩
+  | (tvs, _, ctors) :: tds, id_ :: ids => by
+    obtain ⟨L, hL⟩ := build_ctor_tenv_no_mods tenvT tds ids
+    exact ⟨L ++ (ctors.map fun (p : conN × List ast_t) =>
+        (p.1, (tvs, p.2.map (type_name_subst tenvT), id_))).reverse,
+      by simp [build_ctor_tenv, hL, nsAppend, alist_to_ns]⟩
+  | [], _ :: _ => ⟨[], rfl⟩
+  | _ :: _, [] => ⟨[], rfl⟩
+
+theorem nsLookup_nsAppend_alist_Short {α : Type} (X : «namespace» modN conN α)
+    (Y : List (conN × α)) (cn : conN) :
+    nsLookup (nsAppend X (alist_to_ns Y)) (.Short cn) = (nsLookup X (.Short cn)).or (ALOOKUP Y cn) := by
+  cases X; simp [nsAppend, alist_to_ns, nsLookup, ALOOKUP_append]
+
+theorem ALOOKUP_map_key {κ γ : Type} [BEq κ] (key : conN → κ) (f : conN × List ast_t → γ)
+    (cn : conN) (hkey : ∀ a, (key a == key cn) = (a == cn)) :
+    ∀ (l : List (conN × List ast_t)),
+      ALOOKUP (l.map fun p => (key p.1, f p)) (key cn) = (l.find? (fun p => p.1 == cn)).map f
+  | [] => rfl
+  | (a, ts) :: l => by
+    simp only [List.map_cons, ALOOKUP, List.find?_cons, hkey]
+    cases h : (a == cn) <;> simp [ALOOKUP_map_key key f cn hkey l]
+
+theorem build_tdefs_lookup_rel (tenvT : tenv_abbrev) :
+    ∀ (tds : type_def) (tids : List type_ident) (next : Nat), tds.length = tids.length →
+    (∀ cn, (nsLookup (build_tdefs next tds) (.Short cn) = none ∧
+            nsLookup (build_ctor_tenv tenvT tds tids) (.Short cn) = none) ∨
+      ∃ k st p, nsLookup (build_tdefs next tds) (.Short cn) = some (k, st) ∧
+        nsLookup (build_ctor_tenv tenvT tds tids) (.Short cn) = some p ∧
+        p.2.1.length = k ∧ ALOOKUP (type_def_to_ctMap tenvT next tds tids) st = some p) ∧
+    (∀ st p, (st, p) ∈ type_def_to_ctMap tenvT next tds tids →
+      ∃ cn j, st = .TypeStamp cn j ∧ next ≤ j)
+  | [], [], next, _ => by
+    refine ⟨fun cn => Or.inl ?_, fun st p h => by simp [type_def_to_ctMap] at h⟩
+    simp [build_tdefs, build_ctor_tenv, alist_to_ns, nsLookup, ALOOKUP]
+  | (tvs, tn, ctors) :: tds, id_ :: ids, next, hlen => by
+    obtain ⟨ih1, ih2⟩ := build_tdefs_lookup_rel tenvT tds ids (next + 1) (by simpa using hlen)
+    refine ⟨fun cn => ?_, fun st p h => ?_⟩
+    · simp only [build_tdefs, build_ctor_tenv, type_def_to_ctMap, nsLookup_nsAppend_alist_Short,
+        build_constrs, ← List.map_reverse, ALOOKUP_append]
+      have e1 := ALOOKUP_map_key (fun c => c) (fun p => (p.2.length, stamp.TypeStamp p.1 next))
+        cn (fun _ => rfl) ctors.reverse
+      have e2 := ALOOKUP_map_key (fun c => c)
+        (fun p => (tvs, p.2.map (type_name_subst tenvT), id_)) cn (fun _ => rfl) ctors.reverse
+      have e3 := ALOOKUP_map_key (fun c => stamp.TypeStamp c next)
+        (fun p => (tvs, p.2.map (type_name_subst tenvT), id_)) cn
+        (fun a => by rw [Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq, stamp.TypeStamp.injEq]; simp)
+        ctors.reverse
+      simp only at e1 e2 e3
+      rcases ih1 cn with ⟨h1, h2⟩ | ⟨k, st, p, h1, h2, h3, h4⟩
+      · rw [h1, h2]
+        simp only [Option.none_or]
+        rw [e1, e2]
+        have hnone : ALOOKUP (type_def_to_ctMap tenvT (next + 1) tds ids)
+            (stamp.TypeStamp cn next) = none := by
+          rw [ALOOKUP_none_iff]
+          intro hm
+          obtain ⟨⟨st, p⟩, hm, rfl⟩ := List.mem_map.1 hm
+          obtain ⟨_, j, hj, hle⟩ := ih2 _ _ hm
+          simp only [stamp.TypeStamp.injEq] at hj
+          omega
+        cases hf : List.find? (fun p => p.1 == cn) ctors.reverse with
+        | none => left; simp
+        | some q =>
+          right
+          refine ⟨_, _, _, rfl, rfl, by simp, ?_⟩
+          have hq : q.1 = cn := by simpa using List.find?_some hf
+          rw [hq, hnone, Option.none_or, e3, hf]; rfl
+      · right
+        refine ⟨k, st, p, by rw [h1]; rfl, by rw [h2]; rfl, h3, by rw [h4]; rfl⟩
+    · simp only [type_def_to_ctMap, List.mem_append, List.mem_reverse, List.mem_map] at h
+      rcases h with h | ⟨q, _, hq⟩
+      · obtain ⟨cn, j, hj, hle⟩ := ih2 st p h
+        exact ⟨cn, j, hj, by omega⟩
+      · simp only [Prod.mk.injEq] at hq
+        exact ⟨q.1, next, hq.1.symm, Nat.le_refl _⟩
+  | [], _ :: _, _, h => by simp at h
+  | _ :: _, [], _, h => by simp at h
+
 /- HOL4:
 Theorem build_tdefs_build_tenv[local]:
   !tenvT (tds : type_def) (tids : type_ident list) next (ctMap : ctMap).
@@ -1072,7 +1507,38 @@ theorem build_tdefs_build_tenv :
       nsAll2
         (type_ctor (Finmap.FUPDATE_LIST ctMap_ (type_def_to_ctMap tenvT next tds tids).reverse))
         (build_tdefs next tds : env_ctor)
-        (build_ctor_tenv tenvT tds tids) := sorry
+        (build_ctor_tenv tenvT tds tids) := by
+  intro tenvT tds tids next ctMap_ ⟨_, hlen⟩
+  obtain ⟨hrel, _⟩ := build_tdefs_lookup_rel tenvT tds tids next hlen
+  obtain ⟨L1, hL1⟩ := build_tdefs_no_mods next tds
+  obtain ⟨L2, hL2⟩ := build_ctor_tenv_no_mods tenvT tds tids
+  have hflook : ∀ st p, ALOOKUP (type_def_to_ctMap tenvT next tds tids) st = some p →
+      Finmap.FLOOKUP (Finmap.FUPDATE_LIST ctMap_ (type_def_to_ctMap tenvT next tds tids).reverse)
+        st = some p := by
+    intro st p h
+    simp only [Finmap.FLOOKUP]
+    rw [FUPDATE_LIST_reverse_apply, h]; rfl
+  refine ⟨⟨fun id_ v1 h => ?_, fun path hp => ?_⟩, ⟨fun id_ v2 h => ?_, fun path hp => ?_⟩⟩
+  · cases id_ with
+    | Short cn =>
+      rcases hrel cn with ⟨h1, _⟩ | ⟨k, st, p, h1, h2, h3, h4⟩
+      · rw [h1] at h; cases h
+      · rw [h1] at h; cases h
+        exact ⟨p, h2, hflook _ _ h4, h3⟩
+    | Long mn i => rw [hL1] at h; simp [nsLookup, ALOOKUP] at h
+  · cases path with
+    | nil => simp [nsLookupMod] at hp
+    | cons mn path => rw [hL1]; simp [nsLookupMod, ALOOKUP]
+  · cases id_ with
+    | Short cn =>
+      rcases hrel cn with ⟨_, h2⟩ | ⟨k, st, p, h1, h2, h3, h4⟩
+      · rw [h2] at h; cases h
+      · rw [h2] at h; cases h
+        exact ⟨(k, st), h1, hflook _ _ h4, h3⟩
+    | Long mn i => rw [hL2] at h; simp [nsLookup, ALOOKUP] at h
+  · cases path with
+    | nil => simp [nsLookupMod] at hp
+    | cons mn path => rw [hL2]; simp [nsLookupMod, ALOOKUP]
 /- HOL4:
 Theorem type_sound_invariant_union[local]:
   type_sound_invariant st env ctMap tenvS (tids1 ∪ tids2) tenv
@@ -1083,14 +1549,25 @@ theorem type_sound_invariant_union :
     ∀ {ffi : Type} (st : cml_state ffi) (env : sem_env) (ctMap_ : ctMap)
       (tenvS : tenv_store) (tids1 tids2 : Set type_ident) (tenv : type_env),
       type_sound_invariant st env ctMap_ tenvS (tids1 ∪ tids2) tenv →
-      type_sound_invariant st env ctMap_ tenvS tids1 tenv := sorry
+      type_sound_invariant st env ctMap_ tenvS tids1 tenv := by
+  intro ffi st env ctMap_ tenvS tids1 tids2 tenv ⟨h1, h2, ⟨h3, h3'⟩, h4, h5⟩
+  exact ⟨h1, h2, ⟨fun x hx => h3 x ⟨Or.inl hx.1, hx.2⟩, h3'⟩, h4, h5⟩
 /- HOL4:
 Theorem check_ctor_tenv_dups[local]:
   !tenvT tds. check_ctor_tenv tenvT tds ⇒ EVERY check_dup_ctors tds
 -/
 theorem check_ctor_tenv_dups :
     ∀ (tenvT : tenv_abbrev) (tds : type_def),
-      check_ctor_tenv tenvT tds → EVERY check_dup_ctors tds := sorry
+      check_ctor_tenv tenvT tds → EVERY check_dup_ctors tds := by
+  intro tenvT tds
+  induction tds with
+  | nil => intro; rfl
+  | cons td tds ih =>
+    obtain ⟨tvs, tn, ctors⟩ := td
+    intro h
+    simp only [check_ctor_tenv, Bool.and_eq_true] at h
+    simp only [EVERY, List.all_cons, Bool.and_eq_true] at ih ⊢
+    exact ⟨h.1.1.1.1, ih h.2⟩
 /- HOL4:
 Theorem type_all_env_extend:
    type_all_env ctMap tenvS env1 tenv1
@@ -1104,7 +1581,9 @@ theorem type_all_env_extend :
       type_all_env ctMap_ tenvS env1 tenv1 ∧
       type_all_env ctMap_ tenvS env2 tenv2 →
       type_all_env ctMap_ tenvS (extend_dec_env env1 env2)
-        (extend_dec_tenv tenv1 tenv2) := sorry
+        (extend_dec_tenv tenv1 tenv2) := by
+  intro ctMap_ tenvS env1 env2 tenv1 tenv2 ⟨⟨h1, h2⟩, h3, h4⟩
+  exact ⟨nsAll2_nsAppend _ _ _ _ _ ⟨h1, h3⟩, nsAll2_nsAppend _ _ _ _ _ ⟨h2, h4⟩⟩
 /- HOL4:
 Theorem type_e_con_check:
  (!tenv tenvE e t.
@@ -1134,7 +1613,47 @@ theorem type_e_con_check :
        (env_ : List (varN × sem_t)),
       type_funs tenv tenvE funs env_ →
       nsAll2 (type_ctor ctMap_) envc tenv.c →
-      EVERY (fun (p : varN × varN × exp) => every_exp (one_con_check envc) p.2.2) funs) := sorry
+      EVERY (fun (p : varN × varN × exp) => every_exp (one_con_check envc) p.2.2) funs) := by
+  intro ctMap_ envc
+  have key : ∀ (tenv : type_env), nsAll2 (type_ctor ctMap_) envc tenv.c →
+      (∀ {tenvE e t}, type_e tenv tenvE e t → every_exp (one_con_check envc) e) ∧
+      (∀ {tenvE es ts}, type_es tenv tenvE es ts →
+        ts.length = es.length ∧ EVERY (every_exp (one_con_check envc)) es) ∧
+      (∀ {tenvE funs env_}, type_funs tenv tenvE funs env_ →
+        EVERY (fun (p : varN × varN × exp) => every_exp (one_con_check envc) p.2.2) funs) := by
+    intro tenv hc
+    refine ⟨fun h => ?_, fun h => ?_, fun h => ?_⟩
+    all_goals
+      first
+      | refine type_e.rec
+          (motive_1 := fun _ e _ _ => every_exp (one_con_check envc) e)
+          (motive_2 := fun _ es ts _ => ts.length = es.length ∧ EVERY (every_exp (one_con_check envc)) es)
+          (motive_3 := fun _ funs _ _ =>
+            EVERY (fun (p : varN × varN × exp) => every_exp (one_con_check envc) p.2.2) funs)
+          ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ h
+      | refine type_es.rec
+          (motive_1 := fun _ e _ _ => every_exp (one_con_check envc) e)
+          (motive_2 := fun _ es ts _ => ts.length = es.length ∧ EVERY (every_exp (one_con_check envc)) es)
+          (motive_3 := fun _ funs _ _ =>
+            EVERY (fun (p : varN × varN × exp) => every_exp (one_con_check envc) p.2.2) funs)
+          ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ h
+      | refine type_funs.rec
+          (motive_1 := fun _ e _ _ => every_exp (one_con_check envc) e)
+          (motive_2 := fun _ es ts _ => ts.length = es.length ∧ EVERY (every_exp (one_con_check envc)) es)
+          (motive_3 := fun _ funs _ _ =>
+            EVERY (fun (p : varN × varN × exp) => every_exp (one_con_check envc) p.2.2) funs)
+          ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ h
+    all_goals (intros; try simp_all [every_exp, one_con_check, EVERY])
+    all_goals first
+      | assumption
+      | simp [do_con_check]; done
+      | (rename_i hl ih
+         obtain ⟨⟨k, st⟩, h1, _, h3⟩ := nsAll2_nsLookup2 _ _ _ _ _ ⟨hl, hc⟩
+         simp only at h3
+         simp [do_con_check, h1, ← h3, ih.1])
+  exact ⟨fun tenv _ _ _ h hc => (key tenv hc).1 h,
+    fun tenv _ _ _ h hc => ((key tenv hc).2.1 h).2,
+    fun tenv _ _ _ h hc => (key tenv hc).2.2 h⟩
 /- HOL4:
 Theorem decs_type_sound_no_check:
   ∀(st:'ffi semanticPrimitives$state) env ds st' r ctMap tenvS tenv tids tenv'.
