@@ -56,7 +56,8 @@ elab "ih_facts" : tactic => withMainContext do
           return [g'']
 
 /-- Recursively destruct every conjunction, disjunction and existential hypothesis. -/
-elab "split_hyps" : tactic => liftMetaTactic fun g =>
-  g.casesRec fun d => do
-    let t ← instantiateMVars d.type
-    return t.isAppOf ``And || t.isAppOf ``Or || t.isAppOf ``Exists
+def splitHypsPred (d : LocalDecl) : MetaM Bool := do
+  let t ← instantiateMVars d.type
+  return t.isAppOf ``And || t.isAppOf ``Or || t.isAppOf ``Exists
+
+elab "split_hyps" : tactic => liftMetaTactic fun g => g.casesRec splitHypsPred

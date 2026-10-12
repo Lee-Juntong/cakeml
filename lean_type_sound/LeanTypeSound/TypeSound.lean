@@ -43,33 +43,83 @@ Theorem fst_triple[local]:
   (\ (x,y,z). x) = FST
 -/
 theorem fst_triple {α β γ : Type} :
-    (fun ((x, _, _) : α × β × γ) => x) = (fun (p : α × β × γ) => p.1) := sorry
+    (fun ((x, _, _) : α × β × γ) => x) = (fun (p : α × β × γ) => p.1) := by
+  funext p; rfl
 /- HOL4:
 Theorem sing_list[local]:
   !l. LENGTH l = 1 ⇔ ?x. l = [x]
 -/
 theorem sing_list {α : Type} :
-    ∀ (l : List α), l.length = 1 ↔ ∃ (x : α), l = [x] := sorry
+    ∀ (l : List α), l.length = 1 ↔ ∃ (x : α), l = [x] := by
+  intro l
+  constructor
+  · intro h
+    match l, h with
+    | [x], _ => exact ⟨x, rfl⟩
+  · rintro ⟨x, rfl⟩; rfl
 /- HOL4:
 Theorem EVERY_LIST_REL[local]:
   EVERY (\x. f x y) l = LIST_REL (\x y. f x y) l (REPLICATE (LENGTH l) y)
 -/
 theorem EVERY_LIST_REL_local {α β : Type} :
     ∀ (f : α → β → Prop) (y : β) (l : List α),
-      (∀ (x : α), x ∈ l → f x y) ↔ LIST_REL (fun x y => f x y) l (REPLICATE l.length y) := sorry
+      (∀ (x : α), x ∈ l → f x y) ↔ LIST_REL (fun x y => f x y) l (REPLICATE l.length y) := by
+  intro f y l
+  induction l with
+  | nil => exact ⟨fun _ => .nil, fun _ x hx => by simp at hx⟩
+  | cons a l ih =>
+    simp only [REPLICATE, List.length_cons, List.replicate_succ] at ih ⊢
+    constructor
+    · intro h
+      exact .cons _ _ _ _ (h a List.mem_cons_self) (ih.1 (fun x hx => h x (List.mem_cons_of_mem _ hx)))
+    · intro h
+      cases h with
+      | cons _ _ _ _ h1 h2 =>
+        intro x hx
+        rcases List.mem_cons.1 hx with rfl | hx
+        · exact h1
+        · exact ih.2 h2 x hx
 /- HOL4:
 Theorem v_unchanged[simp]:
   !tenv x. tenv with v := tenv.v = tenv
 -/
 theorem v_unchanged :
-    ∀ (tenv : type_env), { tenv with v := tenv.v } = tenv := sorry
+    ∀ (tenv : type_env), { tenv with v := tenv.v } = tenv := by
+  intro tenv; rfl
 /- HOL4:
 Theorem check_dup_ctors_thm:
   check_dup_ctors (tvs,tn,condefs) = ALL_DISTINCT (MAP FST condefs)
 -/
 theorem check_dup_ctors_thm :
     ∀ (tvs : List tvarN) (tn : typeN) (condefs : List (conN × List ast_t)),
-      check_dup_ctors (tvs, tn, condefs) = ALL_DISTINCT (condefs.map Prod.fst) := sorry
+      check_dup_ctors (tvs, tn, condefs) = ALL_DISTINCT (condefs.map Prod.fst) := by
+  intro tvs tn condefs; rfl
+theorem ctMap_ok_prim_lookup {ctMap_ : ctMap} {stmp : stamp} {tvs' : List tvarN} {ts : List sem_t}
+    {ti : type_ident} (hok : ctMap_ok ctMap_) (hl : Finmap.FLOOKUP ctMap_ stmp = some (tvs', ts, ti))
+    (hp : ti ∈ prim_type_nums) : ti = Texn_num := by
+  cases stmp with
+  | TypeStamp cn n => exact absurd (by simpa using hp) (hok.2.2.1 cn n tvs' ts ti hl)
+  | ExnStamp n => exact (hok.2.1 n tvs' ts ti hl).2
+
+macro "tv_unfold" : tactic => `(tactic| (simp only [Tint, Tchar, Tstring, Tword8, Tword64, Tdouble,
+  Ttup, Tfn, Tref, Tword8array, Tarray, Tvector, Tbool, Texn, Tlist, Tint_num, Tchar_num,
+  Tstring_num, Tword8_num, Tword64_num, Tdouble_num, Ttup_num, Tfn_num, Tref_num,
+  Tword8array_num, Tarray_num, Tvector_num, Tbool_num, Texn_num, Tlist_num, sem_t.Tapp.injEq,
+  List.cons.injEq, reduceCtorEq] at *) <;> (try simp only [Nat.reduceEqDiff, and_false, false_and, false_implies] at *))
+
+theorem type_s_lookup {ctMap_ : ctMap} {envS : List (store_v v)} {tenvS : tenv_store} {n : Nat}
+    {st : store_t} (hs : type_s ctMap_ envS tenvS) (hl : Finmap.FLOOKUP tenvS n = some st) :
+    ∃ sv, store_lookup n envS = some sv ∧ type_sv ctMap_ tenvS sv st := by
+  obtain ⟨sv, hsv⟩ := ((hs n).1).1 ⟨st, hl⟩
+  exact ⟨sv, hsv, (hs n).2 st sv ⟨hl, hsv⟩⟩
+
+set_option hygiene false in
+macro "tv_close" : tactic => `(tactic| first
+    | exact ⟨_, rfl⟩
+    | (obtain ⟨_, rfl⟩ := hT; exact absurd (ctMap_ok_prim_lookup (by first | exact hok | exact hok.1) (by assumption) (by decide)) (by decide))
+    | (obtain ⟨t1', t2', rfl, -⟩ := type_funs_Tfn _ _ _ _ 0 _ _ ⟨by assumption, by assumption⟩; tv_unfold)
+    | skip)
+
 /- HOL4:
 Theorem prim_canonical_values_thm:
   (type_v tvs ctMap tenvS v Tint ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (IntLit n))) ∧
@@ -132,7 +182,85 @@ theorem prim_canonical_values_thm :
         Finmap.FLOOKUP tenvS n = some (.Varray_t t)) ∧
     (type_v tvs ctMap_ tenvS val_ (Tvector t) ∧ ctMap_ok ctMap_ →
       ∃ (vs : List v),
-        val_ = .Vectorv vs ∧ (∀ (v_ : v), v_ ∈ vs → type_v tvs ctMap_ tenvS v_ t)) := sorry
+        val_ = .Vectorv vs ∧ (∀ (v_ : v), v_ ∈ vs → type_v tvs ctMap_ tenvS v_ t)) := by
+  intro tvs ctMap_ tenvS val_ envS ts t1 t2 t
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rintro ⟨h, hok⟩
+    generalize hT : Tint = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+  · rintro ⟨h, hok⟩
+    generalize hT : Tchar = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+  · rintro ⟨h, hok⟩
+    generalize hT : Tstring = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+  · rintro ⟨h, hok⟩
+    generalize hT : Tword8 = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+  · rintro ⟨h, hok⟩
+    generalize hT : Tword64 = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+  · rintro ⟨h, hok⟩
+    generalize hT : Tdouble = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+  · rintro ⟨h, hok⟩
+    generalize hT : Ttup ts = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+    obtain ⟨rfl, -⟩ := hT; exact ⟨_, rfl, by omega⟩
+  · rintro ⟨h, hok⟩
+    generalize hT : Tfn t1 t2 = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+    · exact Or.inl ⟨_, _, _, rfl⟩
+    · exact Or.inr ⟨_, _, _, rfl⟩
+  · rintro ⟨h, hok, hs⟩
+    generalize hT : Tref t1 = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+    rename_i t' n _ hl
+    obtain ⟨⟨rfl, -⟩, -⟩ := hT
+    obtain ⟨sv, h1, h2⟩ := type_s_lookup hs hl
+    cases sv <;> simp only [type_sv] at h2
+    exact ⟨_, _, rfl, h1, h2⟩
+  · rintro ⟨h, hok, hs⟩
+    generalize hT : Tword8array = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+    rename_i n hl
+    obtain ⟨sv, h1, h2⟩ := type_s_lookup hs hl
+    cases sv <;> simp only [type_sv] at h2
+    exact ⟨_, _, rfl, h1, hl⟩
+  · rintro ⟨h, hok, hs⟩
+    generalize hT : Tarray t = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+    rename_i t' n _ hl
+    obtain ⟨⟨rfl, -⟩, -⟩ := hT
+    obtain ⟨sv, h1, h2⟩ := type_s_lookup hs hl
+    cases sv <;> simp only [type_sv] at h2
+    exact ⟨_, _, rfl, h1, h2, hl⟩
+  · rintro ⟨h, hok⟩
+    generalize hT : Tvector t = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+    rename_i t' vs _ hall
+    obtain ⟨⟨rfl, -⟩, -⟩ := hT
+    exact ⟨_, rfl, hall⟩
+theorem ctMap_list_stamp {ctMap_ : ctMap} {stmp : stamp} {tvs' : List tvarN} {ts : List sem_t}
+    (hok : ctMap_ok ctMap_) (hb : ctMap_has_lists ctMap_)
+    (hl : Finmap.FLOOKUP ctMap_ stmp = some (tvs', ts, Tlist_num)) :
+    (stmp = .TypeStamp (mlstring.strlit "[]") list_type_num ∧ tvs' = [mlstring.strlit "'a"] ∧ ts = []) ∨
+    (stmp = .TypeStamp (mlstring.strlit "::") list_type_num ∧ tvs' = [mlstring.strlit "'a"] ∧
+      ts = [.Tvar (mlstring.strlit "'a"), Tlist (.Tvar (mlstring.strlit "'a"))]) := by
+  have hs := hok.2.2.2 stmp _ _ _ _ _ _ ⟨hl, hb.1⟩
+  cases stmp with
+  | ExnStamp n => simp [same_type] at hs
+  | TypeStamp cn n =>
+    simp only [same_type, beq_iff_eq] at hs
+    subst hs
+    by_cases h1 : cn = mlstring.strlit "[]"
+    · subst h1; rw [hb.1] at hl; simp only [Option.some.injEq, Prod.mk.injEq] at hl
+      exact Or.inl ⟨rfl, hl.1.symm, hl.2.1.symm⟩
+    · by_cases h2 : cn = mlstring.strlit "::"
+      · subst h2; rw [hb.2.1] at hl; simp only [Option.some.injEq, Prod.mk.injEq] at hl
+        exact Or.inr ⟨rfl, hl.1.symm, hl.2.1.symm⟩
+      · rw [hb.2.2 cn ⟨h2, h1⟩] at hl; cases hl
+
 /- HOL4:
 Theorem has_lists_v_to_list[local]:
   !ctMap tvs tenvS t3.
@@ -154,7 +282,65 @@ theorem has_lists_v_to_list :
         v_to_list val_ = some vs ∧
         (∀ (v_ : v), v_ ∈ vs → type_v tvs ctMap_ tenvS v_ t3) ∧
         (t3 = Tchar → ∃ (vs' : List Char), v_to_char_list val_ = some vs') ∧
-        (t3 = Tstring → ∃ (str : mlstring), vs_to_string vs = some str) := sorry
+        (t3 = Tstring → ∃ (str : mlstring), vs_to_string vs = some str) := by
+  intro ctMap_ tvs tenvS t3 val_ ⟨hok, hlists, h⟩
+  generalize hT : Tlist t3 = T at h
+  induction h generalizing t3 with
+  | conv_some tvs ctMap_ tenvS ts' tvs' vs ts ti stmp hfv hlen hvl hall hl ih =>
+    simp only [Tlist, sem_t.Tapp.injEq] at hT
+    obtain ⟨rfl, rfl⟩ := hT
+    rcases ctMap_list_stamp hok hlists hl with ⟨rfl, rfl, rfl⟩ | ⟨rfl, rfl, rfl⟩
+    · have : vs = [] := List.eq_nil_of_length_eq_zero (by simpa using hvl)
+      subst this
+      refine ⟨[], by simp [v_to_list], by simp, fun _ => ⟨[], by simp [v_to_char_list]⟩,
+        fun _ => ⟨_, rfl⟩⟩
+    · match vs, hvl, hall, ih with
+      | [v1, v2], _, hall, ih =>
+        have h1 := hall 0 (by simp)
+        have hsub : ∀ t, type_subst (Finmap.FUPDATE_LIST Finmap.FEMPTY
+            ([mlstring.strlit "'a"].zip [t]).reverse) (.Tvar (mlstring.strlit "'a")) = t := by
+          intro t; simp [type_subst, Finmap.FUPDATE_LIST, Finmap.FUPDATE, Finmap.FLOOKUP]
+        simp only [List.map, hsub] at h1
+        have ih2 := ih 1 (by simp) t3 hok hlists (by simp [Tlist, type_subst, Finmap.FUPDATE_LIST, Finmap.FUPDATE, Finmap.FLOOKUP])
+        obtain ⟨vs2, hv2, hall2, hc2, hs2⟩ := ih2
+        simp only [List.getElem!_cons_succ, List.getElem!_cons_zero] at hv2 hc2
+        refine ⟨v1 :: vs2, by simp [v_to_list, hv2], ?_, ?_, ?_⟩
+        · intro w hw
+          rcases List.mem_cons.1 hw with rfl | hw
+          · exact h1
+          · exact hall2 w hw
+        · intro hc; subst hc
+          obtain ⟨c, rfl⟩ := (prim_canonical_values_thm _ _ _ _ [] [] (.Tvar_db 0) (.Tvar_db 0) (.Tvar_db 0)).2.1 ⟨h1, hok⟩
+          obtain ⟨cs, hcs⟩ := hc2 rfl
+          exact ⟨c :: cs, by simp [v_to_char_list, hcs]⟩
+        · intro hs; subst hs
+          obtain ⟨s, rfl⟩ := (prim_canonical_values_thm _ _ _ _ [] [] (.Tvar_db 0) (.Tvar_db 0) (.Tvar_db 0)).2.2.1 ⟨h1, hok⟩
+          obtain ⟨str, hstr⟩ := hs2 rfl
+          exact ⟨strcat s str, by simp [vs_to_string, hstr]⟩
+  | recclosure =>
+    rename_i hf hl _ _ _
+    obtain ⟨t1', t2', rfl, -⟩ := type_funs_Tfn _ _ _ _ 0 _ _ ⟨hf, hl⟩
+    simp [Tlist, Tfn, Tlist_num, Tfn_num] at hT
+  | _ => tv_unfold
+theorem ctMap_bool_stamp {ctMap_ : ctMap} {stmp : stamp} {tvs' : List tvarN} {ts : List sem_t}
+    (hok : ctMap_ok ctMap_) (hb : ctMap_has_bools ctMap_)
+    (hl : Finmap.FLOOKUP ctMap_ stmp = some (tvs', ts, Tbool_num)) :
+    (stmp = .TypeStamp (mlstring.strlit "True") bool_type_num ∨
+     stmp = .TypeStamp (mlstring.strlit "False") bool_type_num) ∧ tvs' = [] ∧ ts = [] := by
+  have hs := hok.2.2.2 stmp _ _ _ _ _ _ ⟨hl, hb.1⟩
+  cases stmp with
+  | ExnStamp n => simp [same_type] at hs
+  | TypeStamp cn n =>
+    simp only [same_type, beq_iff_eq] at hs
+    subst hs
+    by_cases h1 : cn = mlstring.strlit "True"
+    · subst h1; rw [hb.1] at hl; simp only [Option.some.injEq, Prod.mk.injEq] at hl
+      exact ⟨Or.inl rfl, hl.1.symm, hl.2.1.symm⟩
+    · by_cases h2 : cn = mlstring.strlit "False"
+      · subst h2; rw [hb.2.1] at hl; simp only [Option.some.injEq, Prod.mk.injEq] at hl
+        exact ⟨Or.inr rfl, hl.1.symm, hl.2.1.symm⟩
+      · rw [hb.2.2 cn ⟨h1, h2⟩] at hl; cases hl
+
 /- HOL4:
 Theorem ctor_canonical_values_thm:
   (type_v tvs ctMap tenvS v Tbool ∧ ctMap_ok ctMap ∧ ctMap_has_bools ctMap ⇒
@@ -189,13 +375,38 @@ theorem ctor_canonical_values_thm :
       (∃ (cn : conN) (n : Nat) (vs : List v),
         same_type stmp (.TypeStamp cn n) ∧ val_ = .Conv (some (.TypeStamp cn n)) vs) ∨
       (∃ (n : Nat) (vs : List v),
-        same_type stmp (.ExnStamp n) ∧ val_ = .Conv (some (.ExnStamp n)) vs)) := sorry
+        same_type stmp (.ExnStamp n) ∧ val_ = .Conv (some (.ExnStamp n)) vs)) := by
+  intro tvs ctMap_ tenvS val_ t ts ti stmp tvs' ts'
+  refine ⟨?_, fun ⟨h, hok, hl⟩ => has_lists_v_to_list _ _ _ _ _ ⟨hok, hl, h⟩, ?_⟩
+  · rintro ⟨h, hok, hb⟩
+    generalize hT : Tbool = T at h
+    cases h <;> (try tv_unfold) <;> tv_close
+    rename_i hvl _ hl _
+    obtain ⟨rfl, rfl⟩ := hT
+    obtain ⟨hst, rfl, rfl⟩ := ctMap_bool_stamp hok hb hl
+    have : _ = [] := List.eq_nil_of_length_eq_zero (by simpa using hvl)
+    subst this
+    rcases hst with rfl | rfl
+    · exact ⟨true, rfl⟩
+    · exact ⟨false, rfl⟩
+  rintro ⟨h, hok, hl⟩
+  generalize hT : sem_t.Tapp ts ti = T at h
+  cases h <;> (try tv_unfold) <;> tv_close
+  · rename_i stmp0 _ _ _ hl0 _
+    obtain ⟨rfl, rfl⟩ := hT
+    have hs := hok.2.2.2 stmp _ _ _ stmp0 _ _ ⟨hl, hl0⟩
+    cases stmp0 with
+    | TypeStamp cn n => exact Or.inl ⟨cn, n, _, hs, rfl⟩
+    | ExnStamp n => exact Or.inr ⟨n, _, hs, rfl⟩
+  · obtain ⟨_, rfl⟩ := hT
+    exact absurd (ctMap_ok_prim_lookup hok hl (by decide)) (by decide)
 /- HOL4:
 Theorem same_type_refl[local]:
   !t. same_type t t
 -/
 theorem same_type_refl :
-    ∀ (t : stamp), same_type t t := sorry
+    ∀ (t : stamp), same_type t t := by
+  intro t; cases t <;> simp [same_type]
 /- HOL4:
 Theorem eq_same_type[local]:
   (!v1 v2 tvs ctMap cns tenvS t.
@@ -253,7 +464,15 @@ theorem type_funs_fst :
     ∀ (tenv : type_env) (tenvE : tenv_val_exp) (funs : List (varN × varN × exp))
       (tenv' : List (varN × sem_t)),
       type_funs tenv tenvE funs tenv' →
-      funs.map Prod.fst = tenv'.map Prod.fst := sorry
+      funs.map Prod.fst = tenv'.map Prod.fst := by
+  intro tenv tenvE funs
+  induction funs generalizing tenvE with
+  | nil => intro tenv' h; cases h; rfl
+  | cons f funs ih =>
+    intro tenv' h
+    cases h with
+    | cons _ fn n e t1 t2 _ bindings h1 h2 h3 h4 =>
+      simp [ih _ _ h3]
 /- HOL4:
 Theorem type_recfun_env_help[local]:
   ∀fn funs funs' ctMap tenv bindings tenvE env tenvS tvs bindings'.
@@ -329,21 +548,32 @@ theorem type_v_exn :
       type_v tvs cenv senv (.Conv (some chr_stamp) []) Texn ∧
       type_v tvs cenv senv (.Conv (some subscript_stamp) []) Texn ∧
       type_v tvs cenv senv (.Conv (some bind_stamp) []) Texn ∧
-      type_v tvs cenv senv (.Conv (some div_stamp) []) Texn := sorry
+      type_v tvs cenv senv (.Conv (some div_stamp) []) Texn := by
+  intro tvs cenv senv ⟨h1, h2, h3, h4⟩
+  refine ⟨?_, ?_, ?_, ?_⟩ <;>
+    exact .conv_some _ _ _ [] [] [] [] Texn_num _ (fun _ h => by cases h) rfl rfl
+      (fun i hi => by simp at hi) (by assumption)
 /- HOL4:
 Theorem type_v_Boolv[local]:
   ctMap_has_bools ctMap ⇒ type_v tvs ctMap tenvS (Boolv b) Tbool
 -/
 theorem type_v_Boolv :
     ∀ (tvs : Nat) (ctMap_ : ctMap) (tenvS : tenv_store) (b : Bool),
-      ctMap_has_bools ctMap_ → type_v tvs ctMap_ tenvS (Boolv b) Tbool := sorry
+      ctMap_has_bools ctMap_ → type_v tvs ctMap_ tenvS (Boolv b) Tbool := by
+  intro tvs ctMap_ tenvS b ⟨h1, h2, _⟩
+  cases b
+  · exact .conv_some _ _ _ [] [] [] [] Tbool_num _ (fun _ h => by cases h) rfl rfl
+      (fun i hi => by simp at hi) h2
+  · exact .conv_some _ _ _ [] [] [] [] Tbool_num _ (fun _ h => by cases h) rfl rfl
+      (fun i hi => by simp at hi) h1
 /- HOL4:
 Theorem remove_lambda_prod[local]:
   (\ (x,y). P x y) = (\xy. P (FST xy) (SND xy))
 -/
 theorem remove_lambda_prod {α β γ : Type} :
     ∀ (P : α → β → γ),
-      (fun ((x, y) : α × β) => P x y) = (fun (p : α × β) => P p.1 p.2) := sorry
+      (fun ((x, y) : α × β) => P x y) = (fun (p : α × β) => P p.1 p.2) := by
+  intro P; funext p; rfl
 /- HOL4:
 Theorem opapp_type_sound:
   !ctMap tenvS vs ts t.
@@ -378,13 +608,21 @@ Theorem store_type_extension_weakS:
 -/
 theorem store_type_extension_weakS :
     ∀ (tenvS1 tenvS2 : tenv_store),
-      store_type_extension tenvS1 tenvS2 → weakS tenvS2 tenvS1 := sorry
+      store_type_extension tenvS1 tenvS2 → weakS tenvS2 tenvS1 := by
+  intro s1 s2 ⟨s', he, hd⟩ k val_ hk
+  subst he
+  simp only [Finmap.FUNION]
+  rcases hd k with h | h
+  · simp only [Finmap.FLOOKUP] at h; rw [h]; exact hk
+  · simp only [Finmap.FLOOKUP] at h; rw [h] at hk; cases hk
 /- HOL4:
 Theorem store_type_extension_refl:
   !tenvS. store_type_extension tenvS tenvS
 -/
 theorem store_type_extension_refl :
-    ∀ (tenvS : tenv_store), store_type_extension tenvS tenvS := sorry
+    ∀ (tenvS : tenv_store), store_type_extension tenvS tenvS := by
+  intro tenvS
+  exact ⟨Finmap.FEMPTY, by funext x; rfl, fun l => Or.inl rfl⟩
 /- HOL4:
 Theorem store_type_extension_trans:
   !s1 s2 s3.
@@ -394,7 +632,20 @@ Theorem store_type_extension_trans:
 theorem store_type_extension_trans :
     ∀ (s1 s2 s3 : tenv_store),
       store_type_extension s1 s2 ∧ store_type_extension s2 s3 →
-      store_type_extension s1 s3 := sorry
+      store_type_extension s1 s3 := by
+  intro s1 s2 s3 ⟨⟨a, ha, hda⟩, ⟨b, hb, hdb⟩⟩
+  refine ⟨Finmap.FUNION b a, ?_, ?_⟩
+  · subst ha hb; funext x; simp only [Finmap.FUNION]; split <;> rfl
+  · intro l
+    simp only [Finmap.FLOOKUP] at hda hdb ⊢
+    cases h1 : s1 l with
+    | none => exact Or.inr rfl
+    | some w =>
+      left
+      have ha' : a l = none := by rcases hda l with h | h; exact h; rw [h] at h1; cases h1
+      have hs2 : s2 l = some w := by subst ha; simp [Finmap.FUNION, ha', h1]
+      have hb' : b l = none := by rcases hdb l with h | h; exact h; rw [h] at hs2; cases hs2
+      simp [Finmap.FUNION, ha', hb']
 /- HOL4:
 Theorem store_assign_type_sound:
   !ctMap tenvS store sv st l.
@@ -474,7 +725,9 @@ Theorem do_eq_Boolv:
 -/
 theorem do_eq_Boolv :
     ∀ (b b' : Bool),
-      do_eq (Boolv b) (Boolv b') = .Eq_val (b == b') := sorry
+      do_eq (Boolv b) (Boolv b') = .Eq_val (b == b') := by
+  intro b b'
+  cases b <;> cases b' <;> simp [Boolv, do_eq, do_eq_list, ctor_same_type, same_type]
 /- HOL4:
 Theorem prim_canonical_Boolv_thm:
   (type_v tvs ctMap tenvS v Tbool ∧ ctMap_ok ctMap ∧ ctMap_has_bools ctMap ⇒
@@ -483,7 +736,18 @@ Theorem prim_canonical_Boolv_thm:
 theorem prim_canonical_Boolv_thm :
     ∀ (tvs : Nat) (ctMap_ : ctMap) (tenvS : tenv_store) (val_ : v),
       type_v tvs ctMap_ tenvS val_ Tbool ∧ ctMap_ok ctMap_ ∧ ctMap_has_bools ctMap_ →
-      ∃ (b : Bool), val_ = Boolv b := sorry
+      ∃ (b : Bool), val_ = Boolv b := by
+  intro tvs ctMap_ tenvS val_ ⟨h, hok, hb⟩
+  generalize hT : Tbool = T at h
+  cases h <;> (try tv_unfold) <;> tv_close
+  rename_i hvl _ hl _
+  obtain ⟨rfl, rfl⟩ := hT
+  obtain ⟨hst, rfl, rfl⟩ := ctMap_bool_stamp hok hb hl
+  have : _ = [] := List.eq_nil_of_length_eq_zero (by simpa using hvl)
+  subst this
+  rcases hst with rfl | rfl
+  · exact ⟨true, rfl⟩
+  · exact ⟨false, rfl⟩
 /- HOL4:
 Theorem prim_canonical_Boolv_cases[local]:
   type_v tvs ctMap tenvS v (Tapp [] Tbool_num) ∧
@@ -496,7 +760,10 @@ theorem prim_canonical_Boolv_cases :
       type_v tvs ctMap_ tenvS val_ (.Tapp [] Tbool_num) ∧
       ctMap_ok ctMap_ ∧
       ctMap_has_bools ctMap_ →
-      val_ = Boolv true ∨ val_ = Boolv false := sorry
+      val_ = Boolv true ∨ val_ = Boolv false := by
+  intro tvs ctMap_ tenvS val_ ⟨h, hok, hb⟩
+  obtain ⟨b, rfl⟩ := prim_canonical_Boolv_thm tvs ctMap_ tenvS val_ ⟨h, hok, hb⟩
+  cases b <;> simp
 /- HOL4:
 Theorem op_type_sound:
  !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
