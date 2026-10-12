@@ -17,5 +17,7 @@ import LeanTypeSound.TypeSystem
 import LeanTypeSound.TypeSoundInvariants
 import LeanTypeSound.TypeSysProps
 import LeanTypeSound.Weakening
+import LeanTypeSound.TypeSoundCore
+import LeanTypeSound.TypeSoundExp
 import LeanTypeSound.TypeSound
 import LeanTypeSound.SemanticsMin
